@@ -44,3 +44,5 @@ venv/
 # Temporary files
 *.tmp
 *.temp
+
+*.sql
