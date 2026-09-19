@@ -22,7 +22,7 @@ import {
 } from "lucide-react";
 
 import AdminSidebar from "@/app/components/admin/AdminSidebar";
-
+import { adminApi } from "@/lib/api";
 /* =========================================================
    TYPES
 ========================================================= */
@@ -54,9 +54,6 @@ type VendorForm = {
     is_available: boolean;
     is_active: boolean;
 };
-
-const API_BASE_URL = "http://127.0.0.1:8000";
-
 const categories = [
     "All",
     "Decorators",
@@ -80,40 +77,6 @@ const formCategories = [
     "Rentals",
 ];
 
-/* =========================================================
-   AUTH
-========================================================= */
-
-function getToken(): string | null {
-    if (typeof window === "undefined") {
-        return null;
-    }
-
-    return (
-        localStorage.getItem("ss_utsav_access_token") ||
-        sessionStorage.getItem("ss_utsav_access_token") ||
-        localStorage.getItem("access_token") ||
-        sessionStorage.getItem("access_token")
-    );
-}
-
-function clearAuthAndRedirect() {
-    if (typeof window === "undefined") {
-        return;
-    }
-
-    localStorage.removeItem("ss_utsav_access_token");
-    localStorage.removeItem("ss_utsav_admin");
-    localStorage.removeItem("access_token");
-    localStorage.removeItem("admin");
-
-    sessionStorage.removeItem("ss_utsav_access_token");
-    sessionStorage.removeItem("ss_utsav_admin");
-    sessionStorage.removeItem("access_token");
-    sessionStorage.removeItem("admin");
-
-    window.location.href = "/admin/login";
-}
 
 /* =========================================================
    API HELPERS
@@ -146,52 +109,6 @@ async function parseApiError(response: Response): Promise<string> {
         return `Request failed with status ${response.status}`;
     } catch {
         return `Request failed with status ${response.status}`;
-    }
-}
-
-async function apiRequest(
-    endpoint: string,
-    options: RequestInit = {}
-): Promise<any> {
-    const token = getToken();
-
-    if (!token) {
-        clearAuthAndRedirect();
-        throw new Error("Authentication required.");
-    }
-
-    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-        ...options,
-        headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-            ...(options.headers || {}),
-        },
-    });
-
-    if (response.status === 401) {
-        clearAuthAndRedirect();
-        throw new Error("Your session has expired. Please login again.");
-    }
-
-    if (!response.ok) {
-        throw new Error(await parseApiError(response));
-    }
-
-    if (response.status === 204) {
-        return null;
-    }
-
-    const text = await response.text();
-
-    if (!text) {
-        return null;
-    }
-
-    try {
-        return JSON.parse(text);
-    } catch {
-        return text;
     }
 }
 
@@ -354,7 +271,7 @@ export default function VendorsPage() {
 
             setError("");
 
-            const data = await apiRequest("/api/vendors/");
+            const data = await adminApi.get<any>("/api/vendors/");
 
             const vendorList = extractVendors(data);
 
@@ -578,12 +495,9 @@ export default function VendorsPage() {
             setSaving(true);
 
             if (editingVendor) {
-                const data = await apiRequest(
+                const data = await adminApi.put<any>(
                     `/api/vendors/${editingVendor.id}`,
-                    {
-                        method: "PUT",
-                        body: JSON.stringify(payload),
-                    }
+                    payload
                 );
 
                 const updatedVendor =
@@ -602,12 +516,9 @@ export default function VendorsPage() {
                     "Vendor updated successfully."
                 );
             } else {
-                const data = await apiRequest(
+                const data = await adminApi.post<any>(
                     "/api/vendors/",
-                    {
-                        method: "POST",
-                        body: JSON.stringify(payload),
-                    }
+                    payload
                 );
 
                 const createdVendor =
@@ -644,7 +555,7 @@ export default function VendorsPage() {
         try {
             setError("");
 
-            const data = await apiRequest(
+            const data = await adminApi.get<any>(
                 `/api/vendors/${vendor.id}`
             );
 
@@ -674,11 +585,8 @@ export default function VendorsPage() {
             setError("");
             setSuccess("");
 
-            await apiRequest(
-                `/api/vendors/${deleteTarget.id}`,
-                {
-                    method: "DELETE",
-                }
+            await adminApi.delete<any>(
+                `/api/vendors/${deleteTarget.id}`
             );
 
             setVendors((current) =>

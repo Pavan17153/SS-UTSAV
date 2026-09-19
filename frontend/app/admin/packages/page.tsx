@@ -2,9 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import AdminSidebar from "@/app/components/admin/AdminSidebar";
-
-const API_BASE = "http://127.0.0.1:8000";
-
+import { adminApi, API_BASE_URL } from "@/lib/api";
+const API_BASE = API_BASE_URL;
 type PackageItem = {
     id: number;
     name: string;
@@ -36,32 +35,6 @@ function createEmptyForm(): PackageForm {
     };
 }
 
-function getToken(): string | null {
-    if (typeof window === "undefined") return null;
-
-    return (
-        localStorage.getItem("ss_utsav_access_token") ||
-        sessionStorage.getItem("ss_utsav_access_token") ||
-        localStorage.getItem("access_token") ||
-        sessionStorage.getItem("access_token")
-    );
-}
-
-function clearAuthAndRedirect() {
-    if (typeof window === "undefined") return;
-
-    localStorage.removeItem("ss_utsav_access_token");
-    localStorage.removeItem("ss_utsav_admin");
-    localStorage.removeItem("access_token");
-    localStorage.removeItem("admin");
-
-    sessionStorage.removeItem("ss_utsav_access_token");
-    sessionStorage.removeItem("ss_utsav_admin");
-    sessionStorage.removeItem("access_token");
-    sessionStorage.removeItem("admin");
-
-    window.location.href = "/admin/login";
-}
 
 function formatPrice(price: number | string | null) {
     if (price === null || price === undefined || price === "") {
@@ -137,40 +110,21 @@ export default function PackagesAdminPage() {
     // ==================================================
 
     async function fetchPackages() {
-        const token = getToken();
-
-        if (!token) {
-            clearAuthAndRedirect();
-            return;
-        }
-
         try {
             setLoading(true);
 
-            const response = await fetch(`${API_BASE}/api/packages/`, {
-                method: "GET",
-                headers: {
-                    Accept: "application/json",
-                    Authorization: `Bearer ${token}`,
-                },
-            });
+            const data = await adminApi.get<any>(
+                "/api/packages/"
+            );
 
-            if (response.status === 401) {
-                clearAuthAndRedirect();
-                return;
-            }
-
-            const data = await response.json();
-
-            if (!response.ok) {
-                throw new Error(
-                    data?.detail || "Failed to load packages."
-                );
-            }
-
-            setPackages(Array.isArray(data) ? data : []);
+            setPackages(
+                Array.isArray(data) ? data : []
+            );
         } catch (error) {
-            console.error("Packages fetch error:", error);
+            console.error(
+                "Packages fetch error:",
+                error
+            );
 
             alert(
                 error instanceof Error
@@ -334,13 +288,6 @@ export default function PackagesAdminPage() {
     // ==================================================
 
     async function createPackage() {
-        const token = getToken();
-
-        if (!token) {
-            clearAuthAndRedirect();
-            return;
-        }
-
         const packageName = form?.name?.trim() || "";
         const startingPrice =
             form?.starting_price?.trim() || "";
@@ -384,34 +331,10 @@ export default function PackagesAdminPage() {
                 is_active: Boolean(form?.is_active),
             };
 
-            const response = await fetch(
-                `${API_BASE}/api/packages/`,
-                {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                        Accept: "application/json",
-                        Authorization: `Bearer ${token}`,
-                    },
-                    body: JSON.stringify(payload),
-                }
+            const data = await adminApi.post<any>(
+                "/api/packages/",
+                payload
             );
-
-            if (response.status === 401) {
-                clearAuthAndRedirect();
-                return;
-            }
-
-            const data = await response.json();
-
-            if (!response.ok) {
-                throw new Error(
-                    data?.detail ||
-                    data?.message ||
-                    "Failed to create package."
-                );
-            }
-
             /*
              * Backend returns:
              *
@@ -459,12 +382,6 @@ export default function PackagesAdminPage() {
     // ==================================================
 
     async function updatePackage() {
-        const token = getToken();
-
-        if (!token) {
-            clearAuthAndRedirect();
-            return;
-        }
 
         if (!selectedPackage) {
             alert("No package selected.");
@@ -514,34 +431,10 @@ export default function PackagesAdminPage() {
                 is_active: Boolean(form?.is_active),
             };
 
-            const response = await fetch(
-                `${API_BASE}/api/packages/${selectedPackage.id}`,
-                {
-                    method: "PUT",
-                    headers: {
-                        "Content-Type": "application/json",
-                        Accept: "application/json",
-                        Authorization: `Bearer ${token}`,
-                    },
-                    body: JSON.stringify(payload),
-                }
+            const data = await adminApi.put<any>(
+                `/api/packages/${selectedPackage.id}`,
+                payload
             );
-
-            if (response.status === 401) {
-                clearAuthAndRedirect();
-                return;
-            }
-
-            const data = await response.json();
-
-            if (!response.ok) {
-                throw new Error(
-                    data?.detail ||
-                    data?.message ||
-                    "Failed to update package."
-                );
-            }
-
             /*
              * Backend returns:
              *
@@ -592,12 +485,6 @@ export default function PackagesAdminPage() {
     // ==================================================
 
     async function deletePackage() {
-        const token = getToken();
-
-        if (!token) {
-            clearAuthAndRedirect();
-            return;
-        }
 
         if (!selectedPackage) {
             console.error(
@@ -614,48 +501,9 @@ export default function PackagesAdminPage() {
                 selectedPackage.id,
                 selectedPackage.name
             );
-
-            const response = await fetch(
-                `${API_BASE}/api/packages/${selectedPackage.id}`,
-                {
-                    method: "DELETE",
-                    headers: {
-                        Accept: "*/*",
-                        Authorization: `Bearer ${token}`,
-                    },
-                }
+            await adminApi.delete<any>(
+                `/api/packages/${selectedPackage.id}`
             );
-
-            console.log(
-                "Delete response status:",
-                response.status
-            );
-
-            let data: any = null;
-
-            try {
-                data = await response.json();
-            } catch {
-                data = null;
-            }
-
-            console.log(
-                "Delete response:",
-                data
-            );
-
-            if (response.status === 401) {
-                clearAuthAndRedirect();
-                return;
-            }
-
-            if (!response.ok) {
-                throw new Error(
-                    data?.detail ||
-                    data?.message ||
-                    "Failed to delete package."
-                );
-            }
 
             setPackages((previous) =>
                 previous.filter(
@@ -687,45 +535,15 @@ export default function PackagesAdminPage() {
     // ==================================================
 
     async function toggleStatus(item: PackageItem) {
-        const token = getToken();
-
-        if (!token) {
-            clearAuthAndRedirect();
-            return;
-        }
-
         try {
             setSaving(true);
 
-            const response = await fetch(
-                `${API_BASE}/api/packages/${item.id}`,
+            const data = await adminApi.put<any>(
+                `/api/packages/${item.id}`,
                 {
-                    method: "PUT",
-                    headers: {
-                        "Content-Type": "application/json",
-                        Accept: "application/json",
-                        Authorization: `Bearer ${token}`,
-                    },
-                    body: JSON.stringify({
-                        is_active: !item.is_active,
-                    }),
+                    is_active: !item.is_active,
                 }
             );
-
-            if (response.status === 401) {
-                clearAuthAndRedirect();
-                return;
-            }
-
-            const data = await response.json();
-
-            if (!response.ok) {
-                throw new Error(
-                    data?.detail ||
-                    data?.message ||
-                    "Failed to update package status."
-                );
-            }
 
             /*
              * Backend returns:

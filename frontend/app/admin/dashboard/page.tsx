@@ -3,10 +3,9 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import AdminSidebar from "@/app/components/admin/AdminSidebar";
+import { adminApi } from "@/lib/api";
 
-const API_BASE_URL =
-    process.env.NEXT_PUBLIC_API_URL ||
-    "http://127.0.0.1:8000";
+
 
 interface DashboardData {
     leads: {
@@ -53,23 +52,6 @@ interface DashboardData {
         active_packages: number;
         active_testimonials: number;
     };
-}
-
-/* -------------------------------------------------------
-   TOKEN
-------------------------------------------------------- */
-
-function getToken(): string | null {
-    if (typeof window === "undefined") {
-        return null;
-    }
-
-    return (
-        localStorage.getItem("ss_utsav_access_token") ||
-        sessionStorage.getItem("ss_utsav_access_token") ||
-        localStorage.getItem("access_token") ||
-        sessionStorage.getItem("access_token")
-    );
 }
 
 /* -------------------------------------------------------
@@ -223,64 +205,13 @@ export default function AdminDashboard() {
 
     useEffect(() => {
         const fetchDashboard = async () => {
-            const token = getToken();
-
-            if (!token) {
-                window.location.href = "/admin/login";
-                return;
-            }
-
             try {
                 setLoading(true);
                 setError("");
 
-                const response = await fetch(
-                    `${API_BASE_URL}/api/dashboard/summary`,
-                    {
-                        method: "GET",
-
-                        headers: {
-                            Authorization: `Bearer ${token}`,
-                            Accept: "application/json",
-                        },
-
-                        cache: "no-store",
-                    }
+                const data = await adminApi.get<DashboardData>(
+                    "/api/dashboard/summary"
                 );
-
-                /* -----------------------------------------------
-                   TOKEN EXPIRED / INVALID
-                ------------------------------------------------ */
-
-                if (response.status === 401) {
-                    logout();
-                    return;
-                }
-
-                /* -----------------------------------------------
-                   OTHER API ERROR
-                ------------------------------------------------ */
-
-                if (!response.ok) {
-                    const errorText = await response.text();
-
-                    console.error(
-                        "Dashboard API error:",
-                        response.status,
-                        errorText
-                    );
-
-                    throw new Error(
-                        `Dashboard API returned ${response.status}`
-                    );
-                }
-
-                /* -----------------------------------------------
-                   RESPONSE
-                ------------------------------------------------ */
-
-                const data: DashboardData =
-                    await response.json();
 
                 console.log("Dashboard data:", data);
 
@@ -290,6 +221,22 @@ export default function AdminDashboard() {
                     "Failed to load dashboard:",
                     err
                 );
+
+                if (
+                    err instanceof Error &&
+                    err.message === "Unauthorized"
+                ) {
+                    logout();
+                    return;
+                }
+
+                if (
+                    err instanceof Error &&
+                    err.message === "Authentication required"
+                ) {
+                    window.location.href = "/admin/login";
+                    return;
+                }
 
                 setError(
                     "Unable to load dashboard data. Please make sure the backend server is running."
@@ -301,7 +248,6 @@ export default function AdminDashboard() {
 
         fetchDashboard();
     }, []);
-
     /* -----------------------------------------------------
        LOADING SCREEN
     ----------------------------------------------------- */

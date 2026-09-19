@@ -17,8 +17,7 @@ import {
 } from "lucide-react";
 
 import AdminSidebar from "@/app/components/admin/AdminSidebar";
-
-const API_BASE_URL = "http://127.0.0.1:8000";
+import { adminApi } from "@/lib/api";
 
 /* =========================================================
    TYPES
@@ -95,19 +94,6 @@ const eventTypes = [
 /* =========================================================
    AUTH
 ========================================================= */
-
-function getToken(): string | null {
-    if (typeof window === "undefined") {
-        return null;
-    }
-
-    return (
-        localStorage.getItem("ss_utsav_access_token") ||
-        sessionStorage.getItem("ss_utsav_access_token") ||
-        localStorage.getItem("access_token") ||
-        sessionStorage.getItem("access_token")
-    );
-}
 
 function logout() {
     if (typeof window === "undefined") {
@@ -271,50 +257,13 @@ export default function EventsPage() {
     ===================================================== */
 
     const fetchEvents = useCallback(async () => {
-        const token = getToken();
-
-        if (!token) {
-            logout();
-            return;
-        }
-
         try {
             setLoading(true);
             setError("");
 
-            const response = await fetch(
-                `${API_BASE_URL}/api/events/`,
-                {
-                    method: "GET",
-                    headers: {
-                        Authorization: `Bearer ${token}`,
-                        Accept: "application/json",
-                    },
-                    cache: "no-store",
-                }
+            const data = await adminApi.get<any>(
+                "/api/events/"
             );
-
-            if (response.status === 401) {
-                logout();
-                return;
-            }
-
-            if (!response.ok) {
-                const errorText =
-                    await response.text();
-
-                console.error(
-                    "Events API error:",
-                    response.status,
-                    errorText
-                );
-
-                throw new Error(
-                    `Unable to load events (${response.status})`
-                );
-            }
-
-            const data = await response.json();
 
             const eventData = Array.isArray(data)
                 ? data
@@ -326,6 +275,14 @@ export default function EventsPage() {
                 "Failed to fetch events:",
                 err
             );
+
+            if (
+                err instanceof Error &&
+                err.message === "Unauthorized"
+            ) {
+                logout();
+                return;
+            }
 
             setError(
                 err instanceof Error
@@ -342,37 +299,11 @@ export default function EventsPage() {
     ===================================================== */
 
     const fetchCustomers = useCallback(async () => {
-        const token = getToken();
-
-        if (!token) {
-            return;
-        }
 
         try {
-            const response = await fetch(
-                `${API_BASE_URL}/api/customers/`,
-                {
-                    method: "GET",
-                    headers: {
-                        Authorization: `Bearer ${token}`,
-                        Accept: "application/json",
-                    },
-                    cache: "no-store",
-                }
+            const data = await adminApi.get<any>(
+                "/api/customers/"
             );
-
-            if (response.status === 401) {
-                logout();
-                return;
-            }
-
-            if (!response.ok) {
-                throw new Error(
-                    "Unable to load customers."
-                );
-            }
-
-            const data = await response.json();
 
             const customerData = Array.isArray(data)
                 ? data
@@ -384,6 +315,14 @@ export default function EventsPage() {
                 "Failed to fetch customers:",
                 err
             );
+
+            if (
+                err instanceof Error &&
+                err.message === "Unauthorized"
+            ) {
+                logout();
+                return;
+            }
 
             setError(
                 err instanceof Error
@@ -497,26 +436,12 @@ export default function EventsPage() {
     ) => {
         e.preventDefault();
 
-        const token = getToken();
-
-        if (!token) {
-            logout();
-            return;
-        }
-
         setError("");
         setSuccess("");
 
         if (!form.customer_id) {
             setError(
                 "Please select a customer."
-            );
-            return;
-        }
-
-        if (!form.event_type.trim()) {
-            setError(
-                "Event type is required."
             );
             return;
         }
@@ -569,59 +494,35 @@ export default function EventsPage() {
         try {
             setSaving(true);
 
-            const response = await fetch(
-                `${API_BASE_URL}/api/events/`,
+            const data = await adminApi.post<any>(
+                "/api/events/",
                 {
-                    method: "POST",
-                    headers: {
-                        Authorization: `Bearer ${token}`,
-                        "Content-Type":
-                            "application/json",
-                        Accept: "application/json",
-                    },
-                    body: JSON.stringify({
-                        customer_id:
-                            Number(
-                                form.customer_id
-                            ),
-                        event_type:
-                            form.event_type.trim(),
-                        event_date:
-                            form.event_date,
-                        location:
-                            form.location.trim(),
-                        venue:
-                            form.venue.trim() ||
-                            null,
-                        guest_count:
-                            guestCount,
-                        budget,
-                        status:
-                            form.status,
-                        notes:
-                            form.notes.trim() ||
-                            null,
-                    }),
+                    customer_id:
+                        Number(form.customer_id),
+                    event_type:
+                        form.event_type.trim(),
+                    event_date:
+                        form.event_date,
+                    location:
+                        form.location.trim(),
+                    venue:
+                        form.venue.trim() ||
+                        null,
+                    guest_count:
+                        guestCount,
+                    budget,
+                    status:
+                        form.status,
+                    notes:
+                        form.notes.trim() ||
+                        null,
                 }
             );
 
-            if (response.status === 401) {
-                logout();
-                return;
-            }
-
-            const data =
-                await response
-                    .json()
-                    .catch(() => null);
-
-            if (!response.ok) {
-                throw new Error(
-                    data?.detail ||
-                    data?.message ||
-                    "Unable to create event."
-                );
-            }
+            console.log(
+                "Event created successfully:",
+                data
+            );
 
             setShowAddEvent(false);
             setForm(emptyForm());
@@ -640,6 +541,14 @@ export default function EventsPage() {
                 "Create event error:",
                 err
             );
+
+            if (
+                err instanceof Error &&
+                err.message === "Unauthorized"
+            ) {
+                logout();
+                return;
+            }
 
             setError(
                 err instanceof Error
@@ -703,15 +612,9 @@ export default function EventsPage() {
             return;
         }
 
-        const token = getToken();
-
-        if (!token) {
-            logout();
-            return;
-        }
-
         setError("");
         setSuccess("");
+
 
         if (!form.customer_id) {
             setError(
@@ -768,59 +671,35 @@ export default function EventsPage() {
         try {
             setSaving(true);
 
-            const response = await fetch(
-                `${API_BASE_URL}/api/events/${editingEvent.id}`,
+            const data = await adminApi.put<any>(
+                `/api/events/${editingEvent.id}`,
                 {
-                    method: "PUT",
-                    headers: {
-                        Authorization: `Bearer ${token}`,
-                        "Content-Type":
-                            "application/json",
-                        Accept: "application/json",
-                    },
-                    body: JSON.stringify({
-                        customer_id:
-                            Number(
-                                form.customer_id
-                            ),
-                        event_type:
-                            form.event_type.trim(),
-                        event_date:
-                            form.event_date,
-                        location:
-                            form.location.trim(),
-                        venue:
-                            form.venue.trim() ||
-                            null,
-                        guest_count:
-                            guestCount,
-                        budget,
-                        status:
-                            form.status,
-                        notes:
-                            form.notes.trim() ||
-                            null,
-                    }),
+                    customer_id:
+                        Number(form.customer_id),
+                    event_type:
+                        form.event_type.trim(),
+                    event_date:
+                        form.event_date,
+                    location:
+                        form.location.trim(),
+                    venue:
+                        form.venue.trim() ||
+                        null,
+                    guest_count:
+                        guestCount,
+                    budget,
+                    status:
+                        form.status,
+                    notes:
+                        form.notes.trim() ||
+                        null,
                 }
             );
 
-            if (response.status === 401) {
-                logout();
-                return;
-            }
-
-            const data =
-                await response
-                    .json()
-                    .catch(() => null);
-
-            if (!response.ok) {
-                throw new Error(
-                    data?.detail ||
-                    data?.message ||
-                    "Unable to update event."
-                );
-            }
+            console.log(
+                "Event updated successfully:",
+                data
+            );
 
             setEditingEvent(null);
             setForm(emptyForm());
@@ -839,6 +718,14 @@ export default function EventsPage() {
                 "Update event error:",
                 err
             );
+
+            if (
+                err instanceof Error &&
+                err.message === "Unauthorized"
+            ) {
+                logout();
+                return;
+            }
 
             setError(
                 err instanceof Error
@@ -859,47 +746,21 @@ export default function EventsPage() {
             return;
         }
 
-        const token = getToken();
-
-        if (!token) {
-            logout();
-            return;
-        }
-
         setError("");
         setSuccess("");
+
 
         try {
             setDeleting(true);
 
-            const response = await fetch(
-                `${API_BASE_URL}/api/events/${deletingEvent.id}`,
-                {
-                    method: "DELETE",
-                    headers: {
-                        Authorization: `Bearer ${token}`,
-                        Accept: "application/json",
-                    },
-                }
+            const data = await adminApi.delete<any>(
+                `/api/events/${deletingEvent.id}`
             );
 
-            if (response.status === 401) {
-                logout();
-                return;
-            }
-
-            const data =
-                await response
-                    .json()
-                    .catch(() => null);
-
-            if (!response.ok) {
-                throw new Error(
-                    data?.detail ||
-                    data?.message ||
-                    "Unable to delete event."
-                );
-            }
+            console.log(
+                "Event deleted successfully:",
+                data
+            );
 
             setDeletingEvent(null);
 
@@ -924,6 +785,14 @@ export default function EventsPage() {
                 "Delete event error:",
                 err
             );
+
+            if (
+                err instanceof Error &&
+                err.message === "Unauthorized"
+            ) {
+                logout();
+                return;
+            }
 
             setError(
                 err instanceof Error
@@ -970,8 +839,8 @@ export default function EventsPage() {
 
             <main className="min-h-screen lg:ml-[270px]">
                 {/* =================================================
-                   TOP HEADER
-                ================================================= */}
+                       TOP HEADER
+                    ================================================= */}
 
                 <header className="sticky top-0 z-30 border-b border-[#eadfce] bg-[#FBF7F0]/95 px-5 py-4 backdrop-blur-md md:px-8">
                     <div className="flex items-center justify-between">
@@ -1009,8 +878,8 @@ export default function EventsPage() {
                 </header>
 
                 {/* =================================================
-                   CONTENT
-                ================================================= */}
+                       CONTENT
+                    ================================================= */}
 
                 <section className="px-5 py-7 md:px-8 md:py-9">
                     {/* PAGE HEADING */}
@@ -1112,8 +981,8 @@ export default function EventsPage() {
                     )}
 
                     {/* =================================================
-                       STATS
-                    ================================================= */}
+                           STATS
+                        ================================================= */}
 
                     <div className="mt-8 grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
                         <StatCard
@@ -1168,8 +1037,8 @@ export default function EventsPage() {
                     </div>
 
                     {/* =================================================
-                       SEARCH
-                    ================================================= */}
+                           SEARCH
+                        ================================================= */}
 
                     <div className="mt-8 rounded-2xl border border-[#eadfce] bg-white p-4 shadow-sm">
                         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
@@ -1237,8 +1106,8 @@ export default function EventsPage() {
                     </div>
 
                     {/* =================================================
-                       DESKTOP TABLE
-                    ================================================= */}
+                           DESKTOP TABLE
+                        ================================================= */}
 
                     <div className="mt-6 hidden overflow-hidden rounded-2xl border border-[#eadfce] bg-white shadow-sm xl:block">
                         <div className="overflow-x-auto">
@@ -1427,8 +1296,8 @@ export default function EventsPage() {
                     </div>
 
                     {/* =================================================
-                       MOBILE / TABLET CARDS
-                    ================================================= */}
+                           MOBILE / TABLET CARDS
+                        ================================================= */}
 
                     <div className="mt-6 grid gap-4 xl:hidden">
                         {loading ? (
@@ -1658,8 +1527,8 @@ export default function EventsPage() {
             </main>
 
             {/* =====================================================
-               VIEW MODAL
-            ===================================================== */}
+                   VIEW MODAL
+                ===================================================== */}
 
             {selectedEvent && (
                 <EventDetailsModal
@@ -1685,8 +1554,8 @@ export default function EventsPage() {
             )}
 
             {/* =====================================================
-               ADD MODAL
-            ===================================================== */}
+                   ADD MODAL
+                ===================================================== */}
 
             {showAddEvent && (
                 <EventFormModal
@@ -1707,8 +1576,8 @@ export default function EventsPage() {
             )}
 
             {/* =====================================================
-               EDIT MODAL
-            ===================================================== */}
+                   EDIT MODAL
+                ===================================================== */}
 
             {editingEvent && (
                 <EventFormModal
@@ -1731,8 +1600,8 @@ export default function EventsPage() {
             )}
 
             {/* =====================================================
-               DELETE MODAL
-            ===================================================== */}
+                   DELETE MODAL
+                ===================================================== */}
 
             {deletingEvent && (
                 <DeleteEventModal
@@ -2054,7 +1923,6 @@ function EventFormModal({
     saving,
     onClose,
     onSubmit,
-
 }: {
     title: string;
     subtitle: string;
@@ -2068,12 +1936,13 @@ function EventFormModal({
     onSubmit: (
         e: React.FormEvent<HTMLFormElement>
     ) => void;
-
 }) {
     const selectedCustomer = customers.find(
         (customer) =>
-            String(customer.id) === form.customer_id
+            String(customer.id) ===
+            form.customer_id
     );
+
     return (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-[#1D050B]/60 p-4 backdrop-blur-sm">
             <div className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white shadow-2xl">
@@ -2146,6 +2015,7 @@ function EventFormModal({
                             })
                         )}
                     />
+
                     {selectedCustomer && (
                         <div className="mt-3 rounded-xl border border-[#E9DFD4] bg-[#FFFCF8] p-4">
                             <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#9B8B82]">
@@ -2159,7 +2029,9 @@ function EventFormModal({
                                     </p>
 
                                     <p className="mt-1 text-sm font-medium text-[#39030F]">
-                                        {selectedCustomer.full_name}
+                                        {
+                                            selectedCustomer.full_name
+                                        }
                                     </p>
                                 </div>
 
@@ -2169,7 +2041,8 @@ function EventFormModal({
                                     </p>
 
                                     <p className="mt-1 text-sm font-medium text-[#39030F]">
-                                        {selectedCustomer.phone || "Not provided"}
+                                        {selectedCustomer.phone ||
+                                            "Not provided"}
                                     </p>
                                 </div>
 
@@ -2179,7 +2052,8 @@ function EventFormModal({
                                     </p>
 
                                     <p className="mt-1 text-sm font-medium text-[#39030F]">
-                                        {selectedCustomer.email || "Not provided"}
+                                        {selectedCustomer.email ||
+                                            "Not provided"}
                                     </p>
                                 </div>
 
@@ -2189,7 +2063,8 @@ function EventFormModal({
                                     </p>
 
                                     <p className="mt-1 text-sm font-medium text-[#39030F]">
-                                        {selectedCustomer.address || "Not provided"}
+                                        {selectedCustomer.address ||
+                                            "Not provided"}
                                     </p>
                                 </div>
 
@@ -2199,12 +2074,14 @@ function EventFormModal({
                                     </p>
 
                                     <p className="mt-1 text-sm font-medium text-[#39030F]">
-                                        {selectedCustomer.notes || "No notes"}
+                                        {selectedCustomer.notes ||
+                                            "No notes"}
                                     </p>
                                 </div>
                             </div>
                         </div>
                     )}
+
                     {customers.length ===
                         0 && (
                             <p className="-mt-3 text-xs text-red-600">

@@ -2,8 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import AdminSidebar from "@/app/components/admin/AdminSidebar";
-
-const API_BASE = "http://127.0.0.1:8000";
+import { adminApi, API_BASE_URL } from "@/lib/api";
+const API_BASE = API_BASE_URL;
 
 type TestimonialItem = {
     id: number;
@@ -46,33 +46,6 @@ const eventTypes = [
     "Private Event",
     "Other",
 ];
-
-function getToken(): string | null {
-    if (typeof window === "undefined") return null;
-
-    return (
-        localStorage.getItem("ss_utsav_access_token") ||
-        sessionStorage.getItem("ss_utsav_access_token") ||
-        localStorage.getItem("access_token") ||
-        sessionStorage.getItem("access_token")
-    );
-}
-
-function clearAuthAndRedirect() {
-    if (typeof window === "undefined") return;
-
-    localStorage.removeItem("ss_utsav_access_token");
-    localStorage.removeItem("ss_utsav_admin");
-    localStorage.removeItem("access_token");
-    localStorage.removeItem("admin");
-
-    sessionStorage.removeItem("ss_utsav_access_token");
-    sessionStorage.removeItem("ss_utsav_admin");
-    sessionStorage.removeItem("access_token");
-    sessionStorage.removeItem("admin");
-
-    window.location.href = "/admin/login";
-}
 
 function getImageUrl(imageUrl: string | null) {
     if (!imageUrl) return "";
@@ -144,39 +117,12 @@ export default function TestimonialsAdminPage() {
     // =====================================================
 
     async function fetchTestimonials() {
-        const token = getToken();
-
-        if (!token) {
-            clearAuthAndRedirect();
-            return;
-        }
-
         try {
             setLoading(true);
 
-            const response = await fetch(
-                `${API_BASE}/api/testimonials/`,
-                {
-                    method: "GET",
-                    headers: {
-                        Authorization: `Bearer ${token}`,
-                    },
-                }
+            const data = await adminApi.get<any>(
+                "/api/testimonials/"
             );
-
-            if (response.status === 401) {
-                clearAuthAndRedirect();
-                return;
-            }
-
-            const data = await response.json();
-
-            if (!response.ok) {
-                throw new Error(
-                    data?.detail ||
-                    "Failed to load testimonials."
-                );
-            }
 
             setTestimonials(
                 Array.isArray(data)
@@ -354,13 +300,6 @@ export default function TestimonialsAdminPage() {
     // =====================================================
 
     async function createTestimonial() {
-        const token = getToken();
-
-        if (!token) {
-            clearAuthAndRedirect();
-            return;
-        }
-
         if (!form.customer_name.trim()) {
             alert("Please enter customer name.");
             return;
@@ -402,31 +341,10 @@ export default function TestimonialsAdminPage() {
                     form.is_active,
             };
 
-            const response = await fetch(
-                `${API_BASE}/api/testimonials/`,
-                {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                        Authorization: `Bearer ${token}`,
-                    },
-                    body: JSON.stringify(payload),
-                }
+            const data = await adminApi.post<any>(
+                "/api/testimonials/",
+                payload
             );
-
-            if (response.status === 401) {
-                clearAuthAndRedirect();
-                return;
-            }
-
-            const data = await response.json();
-
-            if (!response.ok) {
-                throw new Error(
-                    data?.detail ||
-                    "Failed to create testimonial."
-                );
-            }
 
             if (!data?.testimonial) {
                 throw new Error(
@@ -472,12 +390,6 @@ export default function TestimonialsAdminPage() {
     // =====================================================
 
     async function updateTestimonial() {
-        const token = getToken();
-
-        if (!token) {
-            clearAuthAndRedirect();
-            return;
-        }
 
         if (!selectedTestimonial) {
             alert("No testimonial selected.");
@@ -525,38 +437,16 @@ export default function TestimonialsAdminPage() {
                     form.is_active,
             };
 
-            const response = await fetch(
-                `${API_BASE}/api/testimonials/${selectedTestimonial.id}`,
-                {
-                    method: "PUT",
-                    headers: {
-                        "Content-Type": "application/json",
-                        Authorization: `Bearer ${token}`,
-                    },
-                    body: JSON.stringify(payload),
-                }
+            const data = await adminApi.put<any>(
+                `/api/testimonials/${selectedTestimonial.id}`,
+                payload
             );
-
-            if (response.status === 401) {
-                clearAuthAndRedirect();
-                return;
-            }
-
-            const data = await response.json();
-
-            if (!response.ok) {
-                throw new Error(
-                    data?.detail ||
-                    "Failed to update testimonial."
-                );
-            }
 
             if (!data?.testimonial) {
                 throw new Error(
                     "Testimonial was updated but the server response is invalid."
                 );
             }
-
             const updatedTestimonial: TestimonialItem = {
                 ...data.testimonial,
                 rating: getSafeRating(
@@ -598,12 +488,6 @@ export default function TestimonialsAdminPage() {
     // =====================================================
 
     async function deleteTestimonial() {
-        const token = getToken();
-
-        if (!token) {
-            clearAuthAndRedirect();
-            return;
-        }
 
         if (!selectedTestimonial) {
             alert("No testimonial selected.");
@@ -613,30 +497,9 @@ export default function TestimonialsAdminPage() {
         try {
             setSaving(true);
 
-            const response = await fetch(
-                `${API_BASE}/api/testimonials/${selectedTestimonial.id}`,
-                {
-                    method: "DELETE",
-                    headers: {
-                        Authorization: `Bearer ${token}`,
-                    },
-                }
+            await adminApi.delete<any>(
+                `/api/testimonials/${selectedTestimonial.id}`
             );
-
-            if (response.status === 401) {
-                clearAuthAndRedirect();
-                return;
-            }
-
-            const data = await response.json();
-
-            if (!response.ok) {
-                throw new Error(
-                    data?.detail ||
-                    "Failed to delete testimonial."
-                );
-            }
-
             setTestimonials((previous) =>
                 previous.filter(
                     (item) =>
@@ -671,41 +534,13 @@ export default function TestimonialsAdminPage() {
     async function toggleStatus(
         item: TestimonialItem
     ) {
-        const token = getToken();
-
-        if (!token) {
-            clearAuthAndRedirect();
-            return;
-        }
-
         try {
-            const response = await fetch(
-                `${API_BASE}/api/testimonials/${item.id}`,
+            const data = await adminApi.put<any>(
+                `/api/testimonials/${item.id}`,
                 {
-                    method: "PUT",
-                    headers: {
-                        "Content-Type": "application/json",
-                        Authorization: `Bearer ${token}`,
-                    },
-                    body: JSON.stringify({
-                        is_active: !item.is_active,
-                    }),
+                    is_active: !item.is_active,
                 }
             );
-
-            if (response.status === 401) {
-                clearAuthAndRedirect();
-                return;
-            }
-
-            const data = await response.json();
-
-            if (!response.ok) {
-                throw new Error(
-                    data?.detail ||
-                    "Failed to update testimonial status."
-                );
-            }
 
             if (!data?.testimonial) {
                 throw new Error(
@@ -1604,44 +1439,16 @@ function TestimonialForm({
             return;
         }
 
-        const token = getToken();
-
-        if (!token) {
-            clearAuthAndRedirect();
-            return;
-        }
-
         try {
             setUploading(true);
 
             const formData = new FormData();
 
             formData.append("file", file);
-
-            const response = await fetch(
-                `${API_BASE}/api/testimonials/upload`,
-                {
-                    method: "POST",
-                    headers: {
-                        Authorization: `Bearer ${token}`,
-                    },
-                    body: formData,
-                }
+            const data = await adminApi.post<any>(
+                "/api/testimonials/upload",
+                formData
             );
-
-            if (response.status === 401) {
-                clearAuthAndRedirect();
-                return;
-            }
-
-            const data = await response.json();
-
-            if (!response.ok) {
-                throw new Error(
-                    data?.detail ||
-                    "Failed to upload image."
-                );
-            }
 
             if (!data?.image_url) {
                 throw new Error(

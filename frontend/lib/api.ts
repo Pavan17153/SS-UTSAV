@@ -1,4 +1,4 @@
-const API_BASE_URL =
+export const API_BASE_URL =
     process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 
 type RequestOptions = {
@@ -41,9 +41,12 @@ async function apiRequest<T>(
     } = options;
 
     const headers: HeadersInit = {
-        "Content-Type": "application/json",
         Accept: "application/json",
     };
+
+    if (!(body instanceof FormData)) {
+        headers["Content-Type"] = "application/json";
+    }
 
     if (auth) {
         const token = getAccessToken();
@@ -62,7 +65,9 @@ async function apiRequest<T>(
             headers,
             body:
                 body !== undefined
-                    ? JSON.stringify(body)
+                    ? body instanceof FormData
+                        ? body
+                        : JSON.stringify(body)
                     : undefined,
         }
     );

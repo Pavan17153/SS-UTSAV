@@ -2,8 +2,7 @@
 
 import { useEffect, useState } from "react";
 import AdminSidebar from "@/app/components/admin/AdminSidebar";
-
-const API_BASE = "http://127.0.0.1:8000";
+import { adminApi } from "@/lib/api";
 
 type SettingsData = {
     id?: number;
@@ -69,43 +68,6 @@ const emptyForm: SettingsForm = {
 };
 
 // =====================================================
-// AUTH
-// =====================================================
-
-function getToken(): string | null {
-    if (typeof window === "undefined") {
-        return null;
-    }
-
-    return (
-        localStorage.getItem("ss_utsav_access_token") ||
-        sessionStorage.getItem("ss_utsav_access_token") ||
-        localStorage.getItem("access_token") ||
-        sessionStorage.getItem("access_token")
-    );
-}
-
-function clearAuthAndRedirect() {
-    if (typeof window === "undefined") {
-        return;
-    }
-
-    localStorage.removeItem("ss_utsav_access_token");
-    localStorage.removeItem("ss_utsav_admin");
-    localStorage.removeItem("access_token");
-    localStorage.removeItem("admin");
-    localStorage.removeItem("adminToken");
-
-    sessionStorage.removeItem("ss_utsav_access_token");
-    sessionStorage.removeItem("ss_utsav_admin");
-    sessionStorage.removeItem("access_token");
-    sessionStorage.removeItem("admin");
-    sessionStorage.removeItem("adminToken");
-
-    window.location.href = "/admin/login";
-}
-
-// =====================================================
 // DATE
 // =====================================================
 
@@ -154,39 +116,12 @@ export default function SettingsAdminPage() {
     // ===================================================
 
     async function fetchSettings() {
-        const token = getToken();
-
-        if (!token) {
-            clearAuthAndRedirect();
-            return;
-        }
-
         try {
             setLoading(true);
 
-            const response = await fetch(
-                `${API_BASE}/api/settings/`,
-                {
-                    method: "GET",
-                    headers: {
-                        Authorization: `Bearer ${token}`,
-                    },
-                }
+            const data = await adminApi.get<any>(
+                "/api/settings/"
             );
-
-            if (response.status === 401) {
-                clearAuthAndRedirect();
-                return;
-            }
-
-            const data = await response.json();
-
-            if (!response.ok) {
-                throw new Error(
-                    data?.detail ||
-                    "Failed to load settings."
-                );
-            }
 
             setSettings(data);
 
@@ -256,13 +191,6 @@ export default function SettingsAdminPage() {
     // ===================================================
 
     async function saveSettings() {
-        const token = getToken();
-
-        if (!token) {
-            clearAuthAndRedirect();
-            return;
-        }
-
         if (!form.company_name.trim()) {
             alert("Company name is required.");
             return;
@@ -272,71 +200,24 @@ export default function SettingsAdminPage() {
             setSaving(true);
 
             const payload = {
-                company_name:
-                    form.company_name.trim(),
-
-                tagline:
-                    form.tagline.trim() || null,
-
-                email:
-                    form.email.trim() || null,
-
-                phone:
-                    form.phone.trim() || null,
-
-                address:
-                    form.address.trim() || null,
-
-                website_url:
-                    form.website_url.trim() || null,
-
-                whatsapp_number:
-                    form.whatsapp_number.trim() || null,
-
-                instagram_url:
-                    form.instagram_url.trim() || null,
-
-                facebook_url:
-                    form.facebook_url.trim() || null,
-
-                twitter_x_url:
-                    form.twitter_x_url.trim() || null,
-
-                description:
-                    form.description.trim() || null,
-
-                logo_url:
-                    form.logo_url.trim() || null,
+                company_name: form.company_name.trim(),
+                tagline: form.tagline.trim() || null,
+                email: form.email.trim() || null,
+                phone: form.phone.trim() || null,
+                address: form.address.trim() || null,
+                website_url: form.website_url.trim() || null,
+                whatsapp_number: form.whatsapp_number.trim() || null,
+                instagram_url: form.instagram_url.trim() || null,
+                facebook_url: form.facebook_url.trim() || null,
+                twitter_x_url: form.twitter_x_url.trim() || null,
+                description: form.description.trim() || null,
+                logo_url: form.logo_url.trim() || null,
             };
 
-            const response = await fetch(
-                `${API_BASE}/api/settings/`,
-                {
-                    method: "PUT",
-                    headers: {
-                        "Content-Type":
-                            "application/json",
-
-                        Authorization:
-                            `Bearer ${token}`,
-                    },
-                    body: JSON.stringify(payload),
-                }
+            const data = await adminApi.put<any>(
+                "/api/settings/",
+                payload
             );
-
-            if (response.status === 401) {
-                clearAuthAndRedirect();
-                return;
-            }
-
-            const data = await response.json();
-
-            if (!response.ok) {
-                throw new Error(
-                    data?.detail ||
-                    "Failed to save settings."
-                );
-            }
 
             /*
              * Backend returns:
@@ -349,8 +230,7 @@ export default function SettingsAdminPage() {
              * Therefore use data.settings.
              */
 
-            const updatedSettings =
-                data.settings;
+            const updatedSettings = data.settings;
 
             if (!updatedSettings) {
                 throw new Error(
@@ -398,9 +278,7 @@ export default function SettingsAdminPage() {
                     updatedSettings.logo_url ?? "",
             });
 
-            alert(
-                "Settings saved successfully."
-            );
+            alert("Settings saved successfully.");
         } catch (error) {
             console.error(
                 "Settings save error:",

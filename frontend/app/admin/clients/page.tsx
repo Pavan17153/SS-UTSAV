@@ -20,8 +20,8 @@ import {
 } from "lucide-react";
 
 import AdminSidebar from "@/app/components/admin/AdminSidebar";
+import { adminApi } from "@/lib/api";
 
-const API_BASE_URL = "http://127.0.0.1:8000";
 
 type Customer = {
     id: number;
@@ -52,19 +52,6 @@ const emptyForm: CustomerForm = {
     notes: "",
 };
 
-function getToken(): string | null {
-    if (typeof window === "undefined") {
-        return null;
-    }
-
-    return (
-        localStorage.getItem("ss_utsav_access_token") ||
-        sessionStorage.getItem("ss_utsav_access_token") ||
-        localStorage.getItem("access_token") ||
-        sessionStorage.getItem("access_token")
-    );
-}
-
 function logout() {
     if (typeof window === "undefined") {
         return;
@@ -81,30 +68,6 @@ function logout() {
     sessionStorage.removeItem("admin");
 
     window.location.href = "/admin/login";
-}
-
-async function getApiError(response: Response): Promise<string> {
-    try {
-        const data = await response.json();
-
-        if (typeof data?.detail === "string") {
-            return data.detail;
-        }
-
-        if (Array.isArray(data?.detail)) {
-            return data.detail
-                .map((item: any) => item?.msg || "Validation error")
-                .join(", ");
-        }
-
-        if (typeof data?.message === "string") {
-            return data.message;
-        }
-
-        return `Request failed with status ${response.status}`;
-    } catch {
-        return `Request failed with status ${response.status}`;
-    }
 }
 
 function formatDate(dateString: string | null | undefined) {
@@ -233,36 +196,11 @@ export default function ClientsPage() {
     }
 
     async function loadCustomers() {
-        const token = getToken();
-
-        if (!token) {
-            logout();
-            return;
-        }
-
         setLoading(true);
         setApiError("");
 
         try {
-            const response = await fetch(`${API_BASE_URL}/api/customers/`, {
-                method: "GET",
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                    Accept: "application/json",
-                },
-                cache: "no-store",
-            });
-
-            if (response.status === 401) {
-                logout();
-                return;
-            }
-
-            if (!response.ok) {
-                throw new Error(await getApiError(response));
-            }
-
-            const data = await response.json();
+            const data = await adminApi.get<any>("/api/customers/");
 
             setCustomers(normalizeCustomers(data));
         } catch (error: any) {
@@ -346,14 +284,6 @@ export default function ClientsPage() {
 
     async function saveCustomer(event: React.FormEvent<HTMLFormElement>) {
         event.preventDefault();
-
-        const token = getToken();
-
-        if (!token) {
-            logout();
-            return;
-        }
-
         const fullName = form.full_name.trim();
         const phone = form.phone.trim();
 
@@ -380,30 +310,17 @@ export default function ClientsPage() {
 
             const isEditing = Boolean(editCustomer);
 
-            const url = isEditing
-                ? `${API_BASE_URL}/api/customers/${editCustomer!.id}`
-                : `${API_BASE_URL}/api/customers/`;
-
-            const response = await fetch(url, {
-                method: isEditing ? "PUT" : "POST",
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                    "Content-Type": "application/json",
-                    Accept: "application/json",
-                },
-                body: JSON.stringify(payload),
-            });
-
-            if (response.status === 401) {
-                logout();
-                return;
+            if (isEditing) {
+                await adminApi.put<any>(
+                    `/api/customers/${editCustomer!.id}`,
+                    payload
+                );
+            } else {
+                await adminApi.post<any>(
+                    "/api/customers/",
+                    payload
+                );
             }
-
-            if (!response.ok) {
-                throw new Error(await getApiError(response));
-            }
-
-            await response.json();
 
             await loadCustomers();
 
@@ -431,45 +348,26 @@ export default function ClientsPage() {
     }
 
     async function viewCustomerDetails(customerId: number) {
-        const token = getToken();
-
-        if (!token) {
-            logout();
-            return;
-        }
-
         try {
-            const response = await fetch(
-                `${API_BASE_URL}/api/customers/${customerId}`,
-                {
-                    method: "GET",
-                    headers: {
-                        Authorization: `Bearer ${token}`,
-                        Accept: "application/json",
-                    },
-                    cache: "no-store",
-                }
+            const data = await adminApi.get<any>(
+                `/api/customers/${customerId}`
             );
-
-            if (response.status === 401) {
-                logout();
-                return;
-            }
-
-            if (!response.ok) {
-                throw new Error(await getApiError(response));
-            }
-
-            const data = await response.json();
 
             const customer = normalizeCustomer(data);
 
             if (!customer) {
-                throw new Error("Client details were not returned by the server.");
+                throw new Error(
+                    "Client details were not returned by the server."
+                );
             }
 
             setViewCustomer(customer);
         } catch (error: any) {
+            if (error?.message === "Unauthorized") {
+                logout();
+                return;
+            }
+
             showNotice(
                 "error",
                 error?.message || "Unable to load client details."
@@ -478,45 +376,26 @@ export default function ClientsPage() {
     }
 
     async function editCustomerDetails(customerId: number) {
-        const token = getToken();
-
-        if (!token) {
-            logout();
-            return;
-        }
-
         try {
-            const response = await fetch(
-                `${API_BASE_URL}/api/customers/${customerId}`,
-                {
-                    method: "GET",
-                    headers: {
-                        Authorization: `Bearer ${token}`,
-                        Accept: "application/json",
-                    },
-                    cache: "no-store",
-                }
+            const data = await adminApi.get<any>(
+                `/api/customers/${customerId}`
             );
-
-            if (response.status === 401) {
-                logout();
-                return;
-            }
-
-            if (!response.ok) {
-                throw new Error(await getApiError(response));
-            }
-
-            const data = await response.json();
 
             const customer = normalizeCustomer(data);
 
             if (!customer) {
-                throw new Error("Client details were not returned by the server.");
+                throw new Error(
+                    "Client details were not returned by the server."
+                );
             }
 
             openEditModal(customer);
         } catch (error: any) {
+            if (error?.message === "Unauthorized") {
+                logout();
+                return;
+            }
+
             showNotice(
                 "error",
                 error?.message || "Unable to load client details."
@@ -528,94 +407,24 @@ export default function ClientsPage() {
         if (!deleteCustomer) {
             return;
         }
-
-        const token = getToken();
-
-        if (!token) {
-            logout();
-            return;
-        }
-
         const customerId = deleteCustomer.id;
         const customerName = deleteCustomer.full_name;
 
         setDeleting(true);
 
         try {
-            const response = await fetch(
-                `${API_BASE_URL}/api/customers/${customerId}`,
-                {
-                    method: "DELETE",
-                    headers: {
-                        Authorization: `Bearer ${token}`,
-                        Accept: "application/json",
-                    },
-                }
+            const data = await adminApi.delete<any>(
+                `/api/customers/${customerId}`
             );
-
-            // ----------------------------------------------------
-            // AUTH ERROR
-            // ----------------------------------------------------
-
-            if (response.status === 401) {
-                logout();
-                return;
-            }
-
-            // ----------------------------------------------------
-            // CLIENT HAS LINKED EVENT
-            // ----------------------------------------------------
-
-            if (response.status === 409) {
-                const errorMessage = await getApiError(response);
-
-                throw new Error(errorMessage);
-            }
-
-            // ----------------------------------------------------
-            // OTHER API ERRORS
-            // ----------------------------------------------------
-
-            if (!response.ok) {
-                const errorMessage = await getApiError(response);
-
-                throw new Error(errorMessage);
-            }
-
-            // ----------------------------------------------------
-            // SUCCESS RESPONSE
-            // ----------------------------------------------------
-
-            const data = await response.json();
 
             console.log(
                 "Client deleted successfully:",
                 data
             );
 
-            // ----------------------------------------------------
-            // CLOSE DELETE MODAL
-            // ----------------------------------------------------
-
             setDeleteCustomer(null);
 
-            // ----------------------------------------------------
-            // REFRESH CLIENT LIST
-            // ----------------------------------------------------
-
             await loadCustomers();
-
-            // ----------------------------------------------------
-            // IMPORTANT:
-            // If this customer came from a Lead, backend has
-            // already restored that Lead to NEW.
-            //
-            // Response will contain:
-            //
-            // lead_restored: true
-            // restored_lead_id: <id>
-            //
-            // ----------------------------------------------------
 
             if (
                 data?.lead_restored === true &&
@@ -631,20 +440,21 @@ export default function ClientsPage() {
                     "Client deleted successfully."
                 );
             }
-
         } catch (error: any) {
-
             console.error(
                 "Failed to delete client:",
                 error
             );
 
+            if (error?.message === "Unauthorized") {
+                logout();
+                return;
+            }
+
             showNotice(
                 "error",
-                error?.message ||
-                "Unable to delete client."
+                error?.message || "Unable to delete client."
             );
-
         } finally {
             setDeleting(false);
         }

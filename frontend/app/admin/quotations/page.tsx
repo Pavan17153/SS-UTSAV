@@ -21,8 +21,7 @@ import {
 } from "lucide-react";
 
 import AdminSidebar from "@/app/components/admin/AdminSidebar";
-
-const API_BASE_URL = "http://127.0.0.1:8000";
+import { adminApi } from "@/lib/api";
 
 type QuoteStatus =
     | "DRAFT"
@@ -114,19 +113,6 @@ const emptyItemForm: ItemForm = {
     quantity: "1",
     unit_price: "0",
 };
-
-function getToken(): string | null {
-    if (typeof window === "undefined") {
-        return null;
-    }
-
-    return (
-        localStorage.getItem("ss_utsav_access_token") ||
-        sessionStorage.getItem("ss_utsav_access_token") ||
-        localStorage.getItem("access_token") ||
-        sessionStorage.getItem("access_token")
-    );
-}
 
 function logout() {
     if (typeof window === "undefined") {
@@ -394,67 +380,19 @@ export default function QuotationsPage() {
     }
 
     async function loadData() {
-        const token = getToken();
-
-        if (!token) {
-            logout();
-            return;
-        }
-
         setLoading(true);
         setApiError("");
 
         try {
-            const headers = {
-                Authorization: `Bearer ${token}`,
-                Accept: "application/json",
-            };
-
             const [
-                quotationsResponse,
-                eventsResponse,
-                customersResponse,
+                quotationsData,
+                eventsData,
+                customersData,
             ] = await Promise.all([
-                fetch(`${API_BASE_URL}/api/quotations/`, {
-                    headers,
-                    cache: "no-store",
-                }),
-
-                fetch(`${API_BASE_URL}/api/events/`, {
-                    headers,
-                    cache: "no-store",
-                }),
-
-                fetch(`${API_BASE_URL}/api/customers/`, {
-                    headers,
-                    cache: "no-store",
-                }),
+                adminApi.get<any>("/api/quotations/"),
+                adminApi.get<any>("/api/events/"),
+                adminApi.get<any>("/api/customers/"),
             ]);
-
-            if (
-                quotationsResponse.status === 401 ||
-                eventsResponse.status === 401 ||
-                customersResponse.status === 401
-            ) {
-                logout();
-                return;
-            }
-
-            if (!quotationsResponse.ok) {
-                throw new Error(await getApiError(quotationsResponse));
-            }
-
-            if (!eventsResponse.ok) {
-                throw new Error(await getApiError(eventsResponse));
-            }
-
-            if (!customersResponse.ok) {
-                throw new Error(await getApiError(customersResponse));
-            }
-
-            const quotationsData = await quotationsResponse.json();
-            const eventsData = await eventsResponse.json();
-            const customersData = await customersResponse.json();
 
             setQuotations(
                 normalizeArray<Quotation>(
@@ -477,6 +415,14 @@ export default function QuotationsPage() {
                 )
             );
         } catch (error: any) {
+            if (
+                error?.message === "Unauthorized" ||
+                error?.message === "Authentication required"
+            ) {
+                logout();
+                return;
+            }
+
             setApiError(
                 error?.message || "Unable to load quotation data."
             );
@@ -556,38 +502,11 @@ export default function QuotationsPage() {
         setShowForm(true);
     }
 
-    async function openEditQuotation(
-        quotationId: number
-    ) {
-        const token = getToken();
-
-        if (!token) {
-            logout();
-            return;
-        }
-
+    async function openEditQuotation(quotationId: number) {
         try {
-            const response = await fetch(
-                `${API_BASE_URL}/api/quotations/${quotationId}`,
-                {
-                    headers: {
-                        Authorization: `Bearer ${token}`,
-                        Accept: "application/json",
-                    },
-                    cache: "no-store",
-                }
+            const data = await adminApi.get<any>(
+                `/api/quotations/${quotationId}`
             );
-
-            if (response.status === 401) {
-                logout();
-                return;
-            }
-
-            if (!response.ok) {
-                throw new Error(await getApiError(response));
-            }
-
-            const data = await response.json();
 
             const quotation = normalizeObject<Quotation>(
                 data,
@@ -615,43 +534,25 @@ export default function QuotationsPage() {
 
             await loadItems(quotation.id);
         } catch (error: any) {
+            if (
+                error?.message === "Unauthorized" ||
+                error?.message === "Authentication required"
+            ) {
+                logout();
+                return;
+            }
+
             showNotice(
                 "error",
                 error?.message || "Unable to load quotation."
             );
         }
     }
-
     async function viewQuotation(quotationId: number) {
-        const token = getToken();
-
-        if (!token) {
-            logout();
-            return;
-        }
-
         try {
-            const response = await fetch(
-                `${API_BASE_URL}/api/quotations/${quotationId}`,
-                {
-                    headers: {
-                        Authorization: `Bearer ${token}`,
-                        Accept: "application/json",
-                    },
-                    cache: "no-store",
-                }
+            const data = await adminApi.get<any>(
+                `/api/quotations/${quotationId}`
             );
-
-            if (response.status === 401) {
-                logout();
-                return;
-            }
-
-            if (!response.ok) {
-                throw new Error(await getApiError(response));
-            }
-
-            const data = await response.json();
 
             const quotation = normalizeObject<Quotation>(
                 data,
@@ -668,6 +569,14 @@ export default function QuotationsPage() {
 
             await loadItems(quotation.id);
         } catch (error: any) {
+            if (
+                error?.message === "Unauthorized" ||
+                error?.message === "Authentication required"
+            ) {
+                logout();
+                return;
+            }
+
             showNotice(
                 "error",
                 error?.message || "Unable to load quotation."
@@ -676,37 +585,12 @@ export default function QuotationsPage() {
     }
 
     async function loadItems(quotationId: number) {
-        const token = getToken();
-
-        if (!token) {
-            logout();
-            return;
-        }
-
         setItemsLoading(true);
 
         try {
-            const response = await fetch(
-                `${API_BASE_URL}/api/quotations/${quotationId}/items`,
-                {
-                    headers: {
-                        Authorization: `Bearer ${token}`,
-                        Accept: "application/json",
-                    },
-                    cache: "no-store",
-                }
+            const data = await adminApi.get<any>(
+                `/api/quotations/${quotationId}/items`
             );
-
-            if (response.status === 401) {
-                logout();
-                return;
-            }
-
-            if (!response.ok) {
-                throw new Error(await getApiError(response));
-            }
-
-            const data = await response.json();
 
             setItems(
                 normalizeArray<QuotationItem>(
@@ -715,6 +599,14 @@ export default function QuotationsPage() {
                 )
             );
         } catch (error: any) {
+            if (
+                error?.message === "Unauthorized" ||
+                error?.message === "Authentication required"
+            ) {
+                logout();
+                return;
+            }
+
             showNotice(
                 "error",
                 error?.message || "Unable to load quotation items."
@@ -730,13 +622,6 @@ export default function QuotationsPage() {
         event: React.FormEvent<HTMLFormElement>
     ) {
         event.preventDefault();
-
-        const token = getToken();
-
-        if (!token) {
-            logout();
-            return;
-        }
 
         if (!quotationForm.event_id) {
             showNotice("error", "Please select an event.");
@@ -756,30 +641,15 @@ export default function QuotationsPage() {
 
             const isEditing = Boolean(editingQuotation);
 
-            const url = isEditing
-                ? `${API_BASE_URL}/api/quotations/${editingQuotation!.id}`
-                : `${API_BASE_URL}/api/quotations/`;
-
-            const response = await fetch(url, {
-                method: isEditing ? "PUT" : "POST",
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                    "Content-Type": "application/json",
-                    Accept: "application/json",
-                },
-                body: JSON.stringify(payload),
-            });
-
-            if (response.status === 401) {
-                logout();
-                return;
-            }
-
-            if (!response.ok) {
-                throw new Error(await getApiError(response));
-            }
-
-            const data = await response.json();
+            const data = isEditing
+                ? await adminApi.put<any>(
+                    `/api/quotations/${editingQuotation!.id}`,
+                    payload
+                )
+                : await adminApi.post<any>(
+                    "/api/quotations/",
+                    payload
+                );
 
             const quotation = normalizeObject<Quotation>(
                 data,
@@ -804,6 +674,7 @@ export default function QuotationsPage() {
                 );
             } else {
                 setEditingQuotation(quotation);
+
                 setQuotationForm({
                     event_id: String(quotation.event_id),
                     status: quotation.status,
@@ -821,6 +692,14 @@ export default function QuotationsPage() {
                 );
             }
         } catch (error: any) {
+            if (
+                error?.message === "Unauthorized" ||
+                error?.message === "Authentication required"
+            ) {
+                logout();
+                return;
+            }
+
             showNotice(
                 "error",
                 error?.message || "Unable to save quotation."
@@ -876,13 +755,6 @@ export default function QuotationsPage() {
     ) {
         event.preventDefault();
 
-        const token = getToken();
-
-        if (!token) {
-            logout();
-            return;
-        }
-
         if (!editingQuotation) {
             showNotice(
                 "error",
@@ -932,33 +804,19 @@ export default function QuotationsPage() {
 
             const isEditing = Boolean(editingItem);
 
-            const url = isEditing
-                ? `${API_BASE_URL}/api/quotations/${editingQuotation.id}/items/${editingItem!.id}`
-                : `${API_BASE_URL}/api/quotations/${editingQuotation.id}/items`;
-
-            const response = await fetch(url, {
-                method: isEditing ? "PUT" : "POST",
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                    "Content-Type": "application/json",
-                    Accept: "application/json",
-                },
-                body: JSON.stringify(payload),
-            });
-
-            if (response.status === 401) {
-                logout();
-                return;
+            if (isEditing) {
+                await adminApi.put<any>(
+                    `/api/quotations/${editingQuotation.id}/items/${editingItem!.id}`,
+                    payload
+                );
+            } else {
+                await adminApi.post<any>(
+                    `/api/quotations/${editingQuotation.id}/items`,
+                    payload
+                );
             }
-
-            if (!response.ok) {
-                throw new Error(await getApiError(response));
-            }
-
-            await response.json();
 
             await loadItems(editingQuotation.id);
-
             await loadData();
 
             setShowItemForm(false);
@@ -972,6 +830,14 @@ export default function QuotationsPage() {
                     : "Quotation item added successfully."
             );
         } catch (error: any) {
+            if (
+                error?.message === "Unauthorized" ||
+                error?.message === "Authentication required"
+            ) {
+                logout();
+                return;
+            }
+
             showNotice(
                 "error",
                 error?.message || "Unable to save quotation item."
@@ -980,41 +846,17 @@ export default function QuotationsPage() {
             setSavingItem(false);
         }
     }
-
     async function confirmDeleteItem() {
         if (!deleteItem || !editingQuotation) {
-            return;
-        }
-
-        const token = getToken();
-
-        if (!token) {
-            logout();
             return;
         }
 
         setDeleting(true);
 
         try {
-            const response = await fetch(
-                `${API_BASE_URL}/api/quotations/${editingQuotation.id}/items/${deleteItem.id}`,
-                {
-                    method: "DELETE",
-                    headers: {
-                        Authorization: `Bearer ${token}`,
-                        Accept: "application/json",
-                    },
-                }
+            await adminApi.delete<any>(
+                `/api/quotations/${editingQuotation.id}/items/${deleteItem.id}`
             );
-
-            if (response.status === 401) {
-                logout();
-                return;
-            }
-
-            if (!response.ok) {
-                throw new Error(await getApiError(response));
-            }
 
             setDeleteItem(null);
 
@@ -1026,6 +868,14 @@ export default function QuotationsPage() {
                 "Quotation item deleted successfully."
             );
         } catch (error: any) {
+            if (
+                error?.message === "Unauthorized" ||
+                error?.message === "Authentication required"
+            ) {
+                logout();
+                return;
+            }
+
             showNotice(
                 "error",
                 error?.message ||
@@ -1041,41 +891,12 @@ export default function QuotationsPage() {
             return;
         }
 
-        const token = getToken();
-
-        if (!token) {
-            logout();
-            return;
-        }
-
         setDeleting(true);
 
         try {
-            const response = await fetch(
-                `${API_BASE_URL}/api/quotations/${deleteQuotation.id}`,
-                {
-                    method: "DELETE",
-                    headers: {
-                        Authorization: `Bearer ${token}`,
-                        Accept: "application/json",
-                    },
-                }
+            await adminApi.delete<any>(
+                `/api/quotations/${deleteQuotation.id}`
             );
-
-            if (response.status === 401) {
-                logout();
-                return;
-            }
-
-            if (response.status === 409) {
-                throw new Error(
-                    "This quotation cannot be deleted because it is linked to another record."
-                );
-            }
-
-            if (!response.ok) {
-                throw new Error(await getApiError(response));
-            }
 
             setDeleteQuotation(null);
 
@@ -1098,16 +919,22 @@ export default function QuotationsPage() {
                 "Quotation deleted successfully."
             );
         } catch (error: any) {
+            if (
+                error?.message === "Unauthorized" ||
+                error?.message === "Authentication required"
+            ) {
+                logout();
+                return;
+            }
+
             showNotice(
                 "error",
-                error?.message ||
-                "Unable to delete quotation."
+                error?.message || "Unable to delete quotation."
             );
         } finally {
             setDeleting(false);
         }
     }
-
     return (
         <div className="min-h-screen bg-[#FBF7F0] text-[#39030F]">
             <AdminSidebar
@@ -1533,7 +1360,7 @@ export default function QuotationsPage() {
                                     </table>
                                 </div>
                             </div>
-
+                            {/* part 2 start */}
                             {/* MOBILE */}
                             <div className="grid grid-cols-1 gap-4 xl:hidden">
                                 {filteredQuotations.map(

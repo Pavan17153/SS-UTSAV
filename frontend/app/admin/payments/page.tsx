@@ -25,8 +25,7 @@ import {
 } from "lucide-react";
 
 import AdminSidebar from "@/app/components/admin/AdminSidebar";
-
-const API_BASE_URL = "http://127.0.0.1:8000";
+import { adminApi } from "@/lib/api";
 
 type PaymentMethod =
     | "CASH"
@@ -96,18 +95,6 @@ const paymentMethods: PaymentMethod[] = [
     "OTHER",
 ];
 
-function getToken(): string | null {
-    if (typeof window === "undefined") {
-        return null;
-    }
-
-    return (
-        localStorage.getItem("ss_utsav_access_token") ||
-        sessionStorage.getItem("ss_utsav_access_token") ||
-        localStorage.getItem("access_token") ||
-        sessionStorage.getItem("access_token")
-    );
-}
 
 function clearAuthAndRedirect() {
     if (typeof window === "undefined") {
@@ -182,80 +169,6 @@ function formatPaymentMethod(method: string) {
         .replaceAll("_", " ")
         .toLowerCase()
         .replace(/\b\w/g, (letter) => letter.toUpperCase());
-}
-
-function getApiError(data: any, fallback = "Something went wrong.") {
-    if (!data) {
-        return fallback;
-    }
-
-    if (typeof data.detail === "string") {
-        return data.detail;
-    }
-
-    if (Array.isArray(data.detail)) {
-        return data.detail
-            .map((item: any) => item?.msg || "Validation error")
-            .join(", ");
-    }
-
-    if (typeof data.message === "string") {
-        return data.message;
-    }
-
-    return fallback;
-}
-
-async function apiRequest(
-    endpoint: string,
-    options: RequestInit = {}
-): Promise<any> {
-    const token = getToken();
-
-    if (!token) {
-        clearAuthAndRedirect();
-        throw new Error("Authentication required.");
-    }
-
-    const headers = new Headers(options.headers);
-
-    headers.set("Authorization", `Bearer ${token}`);
-
-    if (options.body && !headers.has("Content-Type")) {
-        headers.set("Content-Type", "application/json");
-    }
-
-    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-        ...options,
-        headers,
-    });
-
-    if (response.status === 401) {
-        clearAuthAndRedirect();
-        throw new Error("Your session has expired. Please login again.");
-    }
-
-    const contentType = response.headers.get("content-type") || "";
-
-    let data: any = null;
-
-    if (contentType.includes("application/json")) {
-        data = await response.json();
-    } else {
-        const text = await response.text();
-        data = text ? { message: text } : null;
-    }
-
-    if (!response.ok) {
-        throw new Error(
-            getApiError(
-                data,
-                `Request failed with status ${response.status}.`
-            )
-        );
-    }
-
-    return data;
 }
 
 function extractList<T>(
@@ -407,9 +320,9 @@ export default function PaymentsPage() {
 
             const [paymentsResponse, eventsResponse, customersResponse] =
                 await Promise.all([
-                    apiRequest("/api/payments/"),
-                    apiRequest("/api/events/"),
-                    apiRequest("/api/customers/"),
+                    adminApi.get<any>("/api/payments/"),
+                    adminApi.get<any>("/api/events/"),
+                    adminApi.get<any>("/api/customers/"),
                 ]);
 
             const paymentList = extractList<Payment>(paymentsResponse, [
@@ -561,7 +474,7 @@ export default function PaymentsPage() {
         try {
             setError("");
 
-            const response = await apiRequest(
+            const response = await adminApi.get<any>(
                 `/api/payments/${payment.id}`
             );
 
@@ -630,12 +543,9 @@ export default function PaymentsPage() {
             setSaving(true);
 
             if (editingPayment) {
-                const response = await apiRequest(
+                const response = await adminApi.put<any>(
                     `/api/payments/${editingPayment.id}`,
-                    {
-                        method: "PUT",
-                        body: JSON.stringify(payload),
-                    }
+                    payload
                 );
 
                 const updatedPayment = extractSingle<Payment>(
@@ -653,10 +563,10 @@ export default function PaymentsPage() {
 
                 setSuccess("Payment updated successfully.");
             } else {
-                const response = await apiRequest("/api/payments/", {
-                    method: "POST",
-                    body: JSON.stringify(payload),
-                });
+                const response = await adminApi.post<any>(
+                    "/api/payments/",
+                    payload
+                );
 
                 const newPayment = extractSingle<Payment>(
                     response,
@@ -689,11 +599,8 @@ export default function PaymentsPage() {
             setError("");
             setSuccess("");
 
-            await apiRequest(
-                `/api/payments/${deleteTarget.id}`,
-                {
-                    method: "DELETE",
-                }
+            await adminApi.delete<any>(
+                `/api/payments/${deleteTarget.id}`
             );
 
             setPayments((current) =>

@@ -2,8 +2,7 @@
 
 import { useEffect, useState } from "react";
 import AdminSidebar from "@/app/components/admin/AdminSidebar";
-
-const API_BASE_URL = "http://127.0.0.1:8000";
+import { adminApi } from "@/lib/api";
 
 /* =========================================================
    TYPES
@@ -35,22 +34,6 @@ interface ConvertResponse {
     lead_id?: number;
 }
 
-/* =========================================================
-   TOKEN
-========================================================= */
-
-function getToken(): string | null {
-    if (typeof window === "undefined") {
-        return null;
-    }
-
-    return (
-        localStorage.getItem("ss_utsav_access_token") ||
-        sessionStorage.getItem("ss_utsav_access_token") ||
-        localStorage.getItem("access_token") ||
-        sessionStorage.getItem("access_token")
-    );
-}
 
 /* =========================================================
    LOGOUT
@@ -213,55 +196,23 @@ export default function AdminLeadsPage() {
     ===================================================== */
 
     const fetchLeads = async () => {
-        const token = getToken();
-
-        if (!token) {
-            window.location.href = "/admin/login";
-            return;
-        }
-
         try {
             setLoading(true);
             setError("");
 
-            const response = await fetch(
-                `${API_BASE_URL}/api/leads/`,
-                {
-                    method: "GET",
-
-                    headers: {
-                        Authorization: `Bearer ${token}`,
-                        Accept: "application/json",
-                    },
-
-                    cache: "no-store",
-                }
-            );
-
-            if (response.status === 401) {
-                logout();
-                return;
-            }
-
-            if (!response.ok) {
-                const errorText = await response.text();
-
-                console.error(
-                    "Leads API error:",
-                    response.status,
-                    errorText
-                );
-
-                throw new Error(
-                    `Leads API returned ${response.status}`
-                );
-            }
-
-            const data: Lead[] = await response.json();
+            const data = await adminApi.get<Lead[]>("/api/leads/");
 
             setLeads(data);
         } catch (err) {
             console.error("Failed to load leads:", err);
+
+            if (
+                err instanceof Error &&
+                err.message === "Unauthorized"
+            ) {
+                logout();
+                return;
+            }
 
             setError(
                 "Unable to load leads. Please make sure the backend server is running."
@@ -287,50 +238,11 @@ export default function AdminLeadsPage() {
         leadId: number,
         newStatus: string
     ) => {
-
-        const token = getToken();
-
-        if (!token) {
-            logout();
-            return;
-        }
-
         try {
-            const response = await fetch(
-                `${API_BASE_URL}/api/leads/${leadId}/status`,
-                {
-                    method: "PUT",
-                    headers: {
-                        "Content-Type": "application/json",
-                        Authorization: `Bearer ${token}`,
-                        Accept: "application/json",
-                    },
-                    body: JSON.stringify({
-                        status: newStatus,
-                    }),
-                }
+            const updatedLead = await adminApi.put<Lead>(
+                `/api/leads/${leadId}/status`,
+                { status: newStatus }
             );
-
-            if (response.status === 401) {
-                logout();
-                return;
-            }
-
-            if (!response.ok) {
-                const errorText = await response.text();
-
-                console.error(
-                    "Status update error:",
-                    response.status,
-                    errorText
-                );
-
-                throw new Error(
-                    `Status update failed: ${response.status}`
-                );
-            }
-
-            const updatedLead = await response.json();
 
             setLeads((currentLeads) =>
                 currentLeads.map((lead) =>
@@ -353,24 +265,26 @@ export default function AdminLeadsPage() {
                 err
             );
 
+            if (
+                err instanceof Error &&
+                err.message === "Unauthorized"
+            ) {
+                logout();
+                return;
+            }
+
             setError(
                 err instanceof Error
                     ? err.message
                     : "Unable to update lead status."
             );
         }
-    };    /* =====================================================
+    };
+    /* =====================================================
        CONVERT LEAD
     ===================================================== */
 
     const convertLead = async (leadId: number) => {
-        const token = getToken();
-
-        if (!token) {
-            logout();
-            return;
-        }
-
         const confirmed = window.confirm(
             "Are you sure you want to convert this lead into a client?"
         );
@@ -382,39 +296,10 @@ export default function AdminLeadsPage() {
         try {
             setConvertingLeadId(leadId);
 
-            const response = await fetch(
-                `${API_BASE_URL}/api/leads/${leadId}/convert`,
-                {
-                    method: "POST",
-
-                    headers: {
-                        Authorization: `Bearer ${token}`,
-                        Accept: "application/json",
-                    },
-                }
+            const data = await adminApi.post<ConvertResponse>(
+                `/api/leads/${leadId}/convert`,
+                {}
             );
-
-            if (response.status === 401) {
-                logout();
-                return;
-            }
-
-            if (!response.ok) {
-                const errorText = await response.text();
-
-                console.error(
-                    "Lead conversion error:",
-                    response.status,
-                    errorText
-                );
-
-                throw new Error(
-                    `Lead conversion failed: ${response.status}`
-                );
-            }
-
-            const data: ConvertResponse =
-                await response.json();
 
             console.log("Lead converted:", data);
 
@@ -443,6 +328,14 @@ export default function AdminLeadsPage() {
                 err
             );
 
+            if (
+                err instanceof Error &&
+                err.message === "Unauthorized"
+            ) {
+                logout();
+                return;
+            }
+
             setError(
                 "Unable to convert this lead. Please try again."
             );
@@ -451,13 +344,6 @@ export default function AdminLeadsPage() {
         }
     };
     const deleteLead = async (leadId: number) => {
-        const token = getToken();
-
-        if (!token) {
-            logout();
-            return;
-        }
-
         const confirmed = window.confirm(
             "Are you sure you want to permanently delete this lead?"
         );
@@ -467,53 +353,16 @@ export default function AdminLeadsPage() {
         }
 
         try {
-            const response = await fetch(
-                `${API_BASE_URL}/api/leads/${leadId}`,
-                {
-                    method: "DELETE",
-                    headers: {
-                        Authorization: `Bearer ${token}`,
-                        Accept: "application/json",
-                    },
-                }
+            await adminApi.delete<any>(
+                `/api/leads/${leadId}`
             );
 
-            if (response.status === 401) {
-                logout();
-                return;
-            }
-
-            if (response.status === 409) {
-                const data = await response.json();
-
-                setError(
-                    data.detail ||
-                    "This lead has already been converted and cannot be deleted."
-                );
-
-                return;
-            }
-
-            if (!response.ok) {
-                const errorText = await response.text();
-
-                console.error(
-                    "Lead delete error:",
-                    response.status,
-                    errorText
-                );
-
-                throw new Error(
-                    `Lead deletion failed: ${response.status}`
-                );
-            }
-
-            // Remove immediately from the current UI
             setLeads((currentLeads) =>
-                currentLeads.filter((lead) => lead.id !== leadId)
+                currentLeads.filter(
+                    (lead) => lead.id !== leadId
+                )
             );
 
-            // Close modal if the deleted lead is currently open
             setSelectedLead((currentLead) =>
                 currentLead?.id === leadId
                     ? null
@@ -521,10 +370,19 @@ export default function AdminLeadsPage() {
             );
 
             setError("");
-        } catch (err) {
-            console.error("Failed to delete lead:", err);
+        } catch (err: any) {
+            console.error(
+                "Failed to delete lead:",
+                err
+            );
+
+            if (err?.message === "Unauthorized") {
+                logout();
+                return;
+            }
 
             setError(
+                err?.message ||
                 "Unable to delete this lead. Please try again."
             );
         }
