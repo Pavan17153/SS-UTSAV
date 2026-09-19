@@ -134,29 +134,21 @@ export default function ServicesPage() {
     useEffect(() => {
         const fetchSettings = async () => {
             try {
-                const data =
-                    await publicApi.get<{
-                        settings?: PublicSettings;
-                    } | PublicSettings>(
-                        "/api/settings/public"
-                    );
-
-                const publicSettings =
-                    "settings" in data && data.settings
-                        ? data.settings
-                        : data;
+                const data = await publicApi.get<PublicSettings>(
+                    "/api/settings/public"
+                );
 
                 setSettings({
                     company_name:
-                        publicSettings.company_name ||
+                        data.company_name ||
                         defaultSettings.company_name,
 
                     tagline:
-                        publicSettings.tagline ||
+                        data.tagline ||
                         defaultSettings.tagline,
 
                     description:
-                        publicSettings.description ||
+                        data.description ||
                         defaultSettings.description,
                 });
             } catch (error) {
