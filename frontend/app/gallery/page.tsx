@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Playfair_Display, Montserrat } from "next/font/google";
+import { publicApi, API_BASE_URL } from "@/lib/api";
 
 const playfair = Playfair_Display({
     subsets: ["latin"],
@@ -13,8 +14,6 @@ const montserrat = Montserrat({
     subsets: ["latin"],
     weight: ["400", "500", "600", "700"],
 });
-
-const API_BASE_URL = "http://127.0.0.1:8000";
 
 
 // ============================================================
@@ -137,33 +136,13 @@ export default function GalleryPage() {
     // ========================================================
 
     useEffect(() => {
-
         const loadGallery = async () => {
-
             try {
-
-                const response = await fetch(
-                    `${API_BASE_URL}/api/gallery/public`,
-                    {
-                        method: "GET",
-                        cache: "no-store",
-                    }
+                const data = await publicApi.get<any[]>(
+                    "/api/gallery/public"
                 );
 
-                if (!response.ok) {
-
-                    console.warn(
-                        "Gallery API returned:",
-                        response.status
-                    );
-
-                    return;
-                }
-
-                const data = await response.json();
-
                 if (!Array.isArray(data) || data.length === 0) {
-
                     console.log(
                         "No active gallery items found. Using default gallery."
                     );
@@ -171,21 +150,9 @@ export default function GalleryPage() {
                     return;
                 }
 
-
-                // ------------------------------------------------
-                // Convert backend gallery format to frontend format
-                // ------------------------------------------------
-
                 const backendGallery: GalleryItem[] = data.map(
                     (item: any, index: number) => {
-
                         let imageUrl = item.image_url;
-
-                        // If backend gives:
-                        // /uploads/gallery/image.png
-                        //
-                        // convert to:
-                        // http://127.0.0.1:8000/uploads/gallery/image.png
 
                         if (
                             imageUrl &&
@@ -194,7 +161,6 @@ export default function GalleryPage() {
                         ) {
                             imageUrl = `${API_BASE_URL}${imageUrl}`;
                         }
-
 
                         return {
                             id: item.id,
@@ -209,24 +175,18 @@ export default function GalleryPage() {
                     }
                 );
 
-
                 setGallery(backendGallery);
-
             } catch (error) {
-
                 console.error(
                     "Gallery loading error:",
                     error
                 );
 
                 // Keep default images.
-                // No need to show an error to visitors.
             }
         };
 
-
         loadGallery();
-
     }, []);
 
 

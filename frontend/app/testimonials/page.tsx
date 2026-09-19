@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Playfair_Display, Montserrat } from "next/font/google";
 import { Quote, Star } from "lucide-react";
+import { publicApi, API_BASE_URL } from "@/lib/api";
 
 const playfair = Playfair_Display({
     subsets: ["latin"],
@@ -14,8 +15,6 @@ const montserrat = Montserrat({
     subsets: ["latin"],
     weight: ["400", "500", "600", "700"],
 });
-
-const API_BASE_URL = "http://127.0.0.1:8000";
 
 type Testimonial = {
     id: number;
@@ -71,23 +70,17 @@ export default function TestimonialsPage() {
     useEffect(() => {
         const fetchTestimonials = async () => {
             try {
-                const response = await fetch(
-                    `${API_BASE_URL}/api/testimonials/public`
-                );
-
-                if (!response.ok) {
-                    throw new Error("Failed to fetch testimonials");
-                }
-
-                const data = await response.json();
+                const data =
+                    await publicApi.get<Testimonial[]>(
+                        "/api/testimonials/public"
+                    );
 
                 if (Array.isArray(data) && data.length > 0) {
                     setTestimonials(data);
                 } else {
                     setTestimonials(fallbackTestimonials);
                 }
-            } catch (error) {
-                console.error("Testimonials fetch error:", error);
+            } catch {
                 setTestimonials(fallbackTestimonials);
             } finally {
                 setLoading(false);
@@ -96,7 +89,6 @@ export default function TestimonialsPage() {
 
         fetchTestimonials();
     }, []);
-
     const getImageUrl = (imageUrl: string | null) => {
         if (!imageUrl) return null;
 

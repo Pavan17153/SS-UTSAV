@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
 import { Playfair_Display, Montserrat } from "next/font/google";
+import { publicApi } from "@/lib/api";
 
 const playfair = Playfair_Display({
     subsets: ["latin"],
@@ -14,7 +15,6 @@ const montserrat = Montserrat({
     weight: ["400", "500", "600", "700"],
 });
 
-const API_BASE = "http://127.0.0.1:8000";
 
 type PublicSettings = {
     company_name: string;
@@ -42,18 +42,9 @@ export default function ContactPage() {
     useEffect(() => {
         const loadSettings = async () => {
             try {
-                const response = await fetch(
-                    `${API_BASE}/api/settings/public`,
-                    {
-                        cache: "no-store",
-                    }
+                const data = await publicApi.get<PublicSettings>(
+                    "/api/settings/public"
                 );
-
-                if (!response.ok) {
-                    throw new Error("Unable to load public settings.");
-                }
-
-                const data: PublicSettings = await response.json();
 
                 setSettings(data);
             } catch (err) {
@@ -136,57 +127,28 @@ export default function ContactPage() {
         }
 
         try {
-            const response = await fetch(
-                `${API_BASE}/api/leads/`,
-                {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                    },
-                    body: JSON.stringify(payload),
-                }
+            await publicApi.post(
+                "/api/leads/",
+                payload
             );
-
-            let data = null;
-
-            try {
-                data = await response.json();
-            } catch {
-                data = null;
-            }
-
-            if (!response.ok) {
-                if (response.status === 422 && data?.detail) {
-                    const validationMessage = Array.isArray(data.detail)
-                        ? data.detail
-                            .map((item: any) => item.msg)
-                            .join(", ")
-                        : String(data.detail);
-
-                    throw new Error(validationMessage);
-                }
-
-                throw new Error(
-                    data?.detail || "Unable to submit your enquiry."
-                );
-            }
 
             setSuccess(true);
             form.reset();
         } catch (err: any) {
             if (err?.message === "Failed to fetch") {
                 setError(
-                    "Unable to connect to SS UTSAV. Please make sure the backend server is running."
+                    "Unable to connect to SS UTSAV. Please try again."
                 );
             } else {
                 setError(
-                    err?.message || "Something went wrong. Please try again."
+                    err?.message ||
+                    "Something went wrong. Please try again."
                 );
             }
         } finally {
             setIsSubmitting(false);
         }
-    };
+    }
 
     return (
         <main className={`${montserrat.className} bg-[#FBF7F0] text-[#39030F]`}>
@@ -394,6 +356,7 @@ export default function ContactPage() {
                                         id="name"
                                         name="name"
                                         type="text"
+                                        autoComplete="name"
                                         placeholder="Your name"
                                         required
                                         className="w-full border border-[#39030F]/15 bg-[#FBF7F0] px-4 py-4 text-sm outline-none transition focus:border-[#C9A227]"
@@ -413,6 +376,7 @@ export default function ContactPage() {
                                         name="phone"
                                         type="tel"
                                         placeholder="+91"
+                                        autoComplete="tel"
                                         required
                                         className="w-full border border-[#39030F]/15 bg-[#FBF7F0] px-4 py-4 text-sm outline-none transition focus:border-[#C9A227]"
                                     />
@@ -430,6 +394,7 @@ export default function ContactPage() {
                                         id="email"
                                         name="email"
                                         type="email"
+                                        autoComplete="email"
                                         placeholder="you@example.com"
                                         className="w-full border border-[#39030F]/15 bg-[#FBF7F0] px-4 py-4 text-sm outline-none transition focus:border-[#C9A227]"
                                     />

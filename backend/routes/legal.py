@@ -780,7 +780,7 @@ def get_public_legal_document(
         db.query(LegalDocument)
         .filter(
             LegalDocument.document_type == document_type,
-            LegalDocument.is_published == True,
+            LegalDocument.is_published.is_(True),
         )
         .first()
     )

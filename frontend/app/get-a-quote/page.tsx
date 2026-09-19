@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Playfair_Display, Montserrat } from "next/font/google";
+import { publicApi } from "@/lib/api";
 
 const playfair = Playfair_Display({
     subsets: ["latin"],
@@ -14,7 +15,6 @@ const montserrat = Montserrat({
     weight: ["400", "500", "600", "700"],
 });
 
-const API_BASE_URL = "http://127.0.0.1:8000";
 
 export default function GetAQuotePage() {
     const [submitted, setSubmitted] = useState(false);
@@ -76,50 +76,9 @@ export default function GetAQuotePage() {
         };
 
         try {
-            const response = await fetch(
-                `${API_BASE_URL}/api/leads/`,
-                {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                    },
-                    body: JSON.stringify(payload),
-                }
-            );
-
-            let data: any = null;
-
-            try {
-                data = await response.json();
-            } catch {
-                data = null;
-            }
-
-            if (!response.ok) {
-                if (response.status === 422) {
-                    const validationMessage =
-                        data?.detail
-                            ?.map(
-                                (item: any) =>
-                                    item?.msg
-                            )
-                            ?.join(", ");
-
-                    throw new Error(
-                        validationMessage ||
-                        "Please check the form details and try again."
-                    );
-                }
-
-                throw new Error(
-                    data?.detail ||
-                    "Unable to submit your enquiry. Please try again."
-                );
-            }
-
-            console.log(
-                "Lead created successfully:",
-                data
+            await publicApi.post(
+                "/api/leads/",
+                payload
             );
 
             setSubmitted(true);
@@ -298,6 +257,7 @@ export default function GetAQuotePage() {
                                             name="fullName"
                                             type="text"
                                             required
+                                            autoComplete="name"
                                             placeholder="Your full name"
                                             className="w-full border border-[#39030F]/15 bg-[#FBF7F0] px-4 py-4 text-sm outline-none transition focus:border-[#C9A227]"
                                         />
@@ -332,6 +292,7 @@ export default function GetAQuotePage() {
                                             id="email"
                                             name="email"
                                             type="email"
+                                            autoComplete="email"
                                             required
                                             placeholder="you@example.com"
                                             className="w-full border border-[#39030F]/15 bg-[#FBF7F0] px-4 py-4 text-sm outline-none transition focus:border-[#C9A227]"
@@ -351,6 +312,7 @@ export default function GetAQuotePage() {
                                             name="phone"
                                             type="tel"
                                             required
+                                            autoComplete="tel"
                                             placeholder="+91"
                                             className="w-full border border-[#39030F]/15 bg-[#FBF7F0] px-4 py-4 text-sm outline-none transition focus:border-[#C9A227]"
                                         />

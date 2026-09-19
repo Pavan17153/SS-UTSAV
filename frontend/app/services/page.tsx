@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Playfair_Display, Montserrat } from "next/font/google";
+import { publicApi } from "@/lib/api";
 
 const playfair = Playfair_Display({
     subsets: ["latin"],
@@ -14,7 +15,6 @@ const montserrat = Montserrat({
     weight: ["400", "500", "600", "700"],
 });
 
-const API_BASE_URL = "http://127.0.0.1:8000";
 
 type PublicSettings = {
     company_name?: string;
@@ -127,7 +127,6 @@ const services = [
         ],
     },
 ];
-
 export default function ServicesPage() {
     const [settings, setSettings] =
         useState<PublicSettings>(defaultSettings);
@@ -135,29 +134,29 @@ export default function ServicesPage() {
     useEffect(() => {
         const fetchSettings = async () => {
             try {
-                const response = await fetch(
-                    `${API_BASE_URL}/api/settings/public`
-                );
+                const data =
+                    await publicApi.get<{
+                        settings?: PublicSettings;
+                    } | PublicSettings>(
+                        "/api/settings/public"
+                    );
 
-                if (!response.ok) {
-                    return;
-                }
-
-                const data = await response.json();
-
-                const publicSettings = data?.settings || data;
+                const publicSettings =
+                    "settings" in data && data.settings
+                        ? data.settings
+                        : data;
 
                 setSettings({
                     company_name:
-                        publicSettings?.company_name ||
+                        publicSettings.company_name ||
                         defaultSettings.company_name,
 
                     tagline:
-                        publicSettings?.tagline ||
+                        publicSettings.tagline ||
                         defaultSettings.tagline,
 
                     description:
-                        publicSettings?.description ||
+                        publicSettings.description ||
                         defaultSettings.description,
                 });
             } catch (error) {
@@ -170,7 +169,6 @@ export default function ServicesPage() {
 
         fetchSettings();
     }, []);
-
     return (
         <main
             className={`${montserrat.className} overflow-hidden bg-[#FBF7F0]`}

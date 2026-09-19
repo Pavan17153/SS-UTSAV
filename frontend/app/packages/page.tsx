@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Playfair_Display, Montserrat } from "next/font/google";
+import { publicApi } from "@/lib/api";
 import {
     ClipboardList,
     GitMerge,
@@ -18,8 +19,6 @@ const montserrat = Montserrat({
     subsets: ["latin"],
     weight: ["400", "500", "600", "700"],
 });
-
-const API_BASE_URL = "http://127.0.0.1:8000";
 
 type BackendPackage = {
     id: number;
@@ -223,18 +222,10 @@ export default function PackagesPage() {
     useEffect(() => {
         const fetchPackages = async () => {
             try {
-                const response = await fetch(
-                    `${API_BASE_URL}/api/packages/public`
-                );
-
-                if (!response.ok) {
-                    throw new Error(
-                        "Failed to fetch packages"
+                const data =
+                    await publicApi.get<BackendPackage[]>(
+                        "/api/packages/public"
                     );
-                }
-
-                const data: BackendPackage[] =
-                    await response.json();
 
                 const activePackages = data.filter(
                     (pkg) => pkg.is_active
@@ -264,7 +255,6 @@ export default function PackagesPage() {
 
         fetchPackages();
     }, []);
-
     return (
         <main
             className={`${montserrat.className} overflow-hidden bg-[#FBF7F0]`}

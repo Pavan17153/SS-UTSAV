@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Playfair_Display, Montserrat } from "next/font/google";
+import { publicApi } from "@/lib/api";
 
 const playfair = Playfair_Display({
   subsets: ["latin"],
@@ -13,9 +14,6 @@ const montserrat = Montserrat({
   subsets: ["latin"],
   weight: ["400", "500", "600", "700"],
 });
-
-const API_BASE_URL = "http://127.0.0.1:8000";
-
 interface PublicSettings {
   company_name: string;
   tagline: string | null;
@@ -38,15 +36,10 @@ export default function Home() {
   useEffect(() => {
     const fetchSettings = async () => {
       try {
-        const response = await fetch(
-          `${API_BASE_URL}/api/settings/public`
-        );
-
-        if (!response.ok) {
-          throw new Error("Failed to fetch settings");
-        }
-
-        const data = await response.json();
+        const data =
+          await publicApi.get<PublicSettings>(
+            "/api/settings/public"
+          );
 
         setSettings(data);
       } catch (error) {
@@ -56,7 +49,6 @@ export default function Home() {
 
     fetchSettings();
   }, []);
-
   const companyName = settings?.company_name || "SS UTSAV";
 
   const tagline = settings?.tagline || "We Plan. You Celebrate.";

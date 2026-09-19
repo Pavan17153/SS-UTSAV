@@ -7,10 +7,7 @@ import {
     Loader2,
     Scale,
 } from "lucide-react";
-import Navbar from "@/app/components/Navbar";
-import Footer from "@/app/components/Footer";
-
-const API_BASE_URL = "http://127.0.0.1:8000";
+import { publicApi, API_BASE_URL } from "@/lib/api";
 
 interface LegalDocument {
     id: number;
@@ -357,26 +354,11 @@ export default function TermsAndConditionsPage() {
     useEffect(() => {
         const fetchTermsAndConditions = async () => {
             try {
-                const response = await fetch(
-                    `${API_BASE_URL}/api/legal/public/TERMS_AND_CONDITIONS`
-                );
+                const data =
+                    await publicApi.get<LegalDocument>(
+                        "/api/legal/public/TERMS_AND_CONDITIONS"
+                    );
 
-                if (!response.ok) {
-                    /*
-                     * No published document.
-                     * Use default SS UTSAV content.
-                     */
-                    setUsingDefault(true);
-                    return;
-                }
-
-                const data: LegalDocument =
-                    await response.json();
-
-                /*
-                 * Safety check.
-                 * Public API should only return published data.
-                 */
                 if (!data.is_published) {
                     setUsingDefault(true);
                     return;
@@ -384,25 +366,16 @@ export default function TermsAndConditionsPage() {
 
                 setDocument(data);
                 setUsingDefault(false);
-            } catch (error) {
-                console.error(
-                    "Terms & Conditions fetch error:",
-                    error
-                );
-
-                /*
-                 * Backend unavailable or no published
-                 * document → show default content.
-                 */
+            } catch {
                 setUsingDefault(true);
-            } finally {
+            }
+            finally {
                 setLoading(false);
             }
         };
 
         fetchTermsAndConditions();
     }, []);
-
     return (
         <div className="min-h-screen bg-[#FBF7F0]">
 

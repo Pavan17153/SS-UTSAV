@@ -7,10 +7,7 @@ import {
     Loader2,
     ShieldCheck,
 } from "lucide-react";
-import Navbar from "@/app/components/Navbar";
-import Footer from "@/app/components/Footer";
-
-const API_BASE_URL = "http://127.0.0.1:8000";
+import { publicApi, API_BASE_URL } from "@/lib/api";
 
 interface LegalDocument {
     id: number;
@@ -181,26 +178,11 @@ export default function PrivacyPolicyPage() {
     useEffect(() => {
         const fetchPrivacyPolicy = async () => {
             try {
-                const response = await fetch(
-                    `${API_BASE_URL}/api/legal/public/PRIVACY_POLICY`
-                );
+                const data =
+                    await publicApi.get<LegalDocument>(
+                        "/api/legal/public/PRIVACY_POLICY"
+                    );
 
-                if (!response.ok) {
-                    /*
-                     * No published document.
-                     * Use default SS UTSAV content.
-                     */
-                    setUsingDefault(true);
-                    return;
-                }
-
-                const data: LegalDocument =
-                    await response.json();
-
-                /*
-                 * Safety check.
-                 * Public API should only return published data.
-                 */
                 if (!data.is_published) {
                     setUsingDefault(true);
                     return;
@@ -209,16 +191,8 @@ export default function PrivacyPolicyPage() {
                 setDocument(data);
                 setUsingDefault(false);
             } catch (error) {
-                console.error(
-                    "Privacy Policy fetch error:",
-                    error
-                );
-
-                /*
-                 * Backend unavailable or no published
-                 * document → show default content.
-                 */
                 setUsingDefault(true);
+
             } finally {
                 setLoading(false);
             }

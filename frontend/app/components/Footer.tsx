@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-
+import { publicApi } from "@/lib/api";
 import {
     MapPin,
     Phone,
@@ -18,9 +18,6 @@ import {
     FaFacebookF,
     FaXTwitter,
 } from "react-icons/fa6";
-
-const API_BASE = "http://127.0.0.1:8000";
-
 type PublicSettings = {
     company_name: string;
     tagline: string | null;
@@ -43,21 +40,9 @@ export default function Footer() {
     useEffect(() => {
         const loadSettings = async () => {
             try {
-                const response = await fetch(
-                    `${API_BASE}/api/settings/public`,
-                    {
-                        cache: "no-store",
-                    }
+                const data = await publicApi.get<PublicSettings>(
+                    "/api/settings/public"
                 );
-
-                if (!response.ok) {
-                    throw new Error(
-                        "Unable to load public settings."
-                    );
-                }
-
-                const data: PublicSettings =
-                    await response.json();
 
                 setSettings(data);
             } catch (error) {
