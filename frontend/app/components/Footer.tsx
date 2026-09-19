@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { publicApi } from "@/lib/api";
 import {
     MapPin,
@@ -15,7 +15,7 @@ import {
 import {
     FaInstagram,
     FaWhatsapp,
-    FaFacebookF,
+    FaYoutube,
     FaXTwitter,
 } from "react-icons/fa6";
 type PublicSettings = {
@@ -27,13 +27,15 @@ type PublicSettings = {
     whatsapp_number: string | null;
     website_url: string | null;
     instagram_url: string | null;
-    facebook_url: string | null;
+    youtube_url: string | null;
     twitter_x_url: string | null;
     description: string | null;
     logo_url: string | null;
 };
 
 export default function Footer() {
+    const footerRef = useRef<HTMLElement | null>(null);
+    const [isFooterVisible, setIsFooterVisible] = useState(false);
     const [settings, setSettings] =
         useState<PublicSettings | null>(null);
 
@@ -55,7 +57,28 @@ export default function Footer() {
 
         loadSettings();
     }, []);
+    useEffect(() => {
+        const footer = footerRef.current;
 
+        if (!footer) {
+            return;
+        }
+
+        const observer = new IntersectionObserver(
+            ([entry]) => {
+                setIsFooterVisible(entry.isIntersecting);
+            },
+            {
+                threshold: 0.05,
+            }
+        );
+
+        observer.observe(footer);
+
+        return () => {
+            observer.disconnect();
+        };
+    }, []);
     // =========================================================
     // DYNAMIC SETTINGS
     // =========================================================
@@ -88,10 +111,9 @@ export default function Footer() {
 
     const instagramUrl =
         settings?.instagram_url || "#";
-
-    const facebookUrl =
-        settings?.facebook_url || "#";
-
+    const youtubeUrl =
+        settings?.youtube_url ||
+        "https://www.youtube.com/@SSUTSAV";
     const twitterXUrl =
         settings?.twitter_x_url || "#";
 
@@ -127,7 +149,10 @@ export default function Footer() {
     });
 
     return (
-        <footer className="bg-[#4A0618] text-white">
+        <footer
+            ref={footerRef}
+            className="bg-[#4A0618] text-white"
+        >
 
             {/* =====================================================
                 MAIN FOOTER
@@ -356,34 +381,30 @@ export default function Footer() {
                             >
                                 <FaWhatsapp size={18} />
                             </a>
-
-                            {/* FACEBOOK */}
+                            {/* YOUTUBE */}
 
                             <a
-                                href={facebookUrl}
-                                {...externalLinkProps(
-                                    facebookUrl
-                                )}
-                                aria-label="Facebook"
+                                href={youtubeUrl}
+                                {...externalLinkProps(youtubeUrl)}
+                                aria-label="YouTube"
                                 className="
-                                    flex
-                                    h-10
-                                    w-10
-                                    items-center
-                                    justify-center
-                                    rounded-full
-                                    border
-                                    border-[#D9B84C]/35
-                                    text-[#D9B84C]
-                                    transition
-                                    duration-300
-                                    hover:bg-[#D9B84C]
-                                    hover:text-[#4A0618]
-                                "
+                                            flex
+                                            h-10
+                                            w-10
+                                            items-center
+                                            justify-center
+                                            rounded-full
+                                            border
+                                            border-[#D9B84C]/35
+                                            text-[#D9B84C]
+                                            transition
+                                            duration-300
+                                            hover:bg-[#D9B84C]
+                                            hover:text-[#4A0618]
+                                        "
                             >
-                                <FaFacebookF size={17} />
+                                <FaYoutube size={18} />
                             </a>
-
                             {/* X / TWITTER */}
 
                             <a
@@ -963,7 +984,44 @@ export default function Footer() {
                 >
                     {tagline}
                 </p>
+                {/* MOBILE SCROLL TO TOP */}
 
+                {isFooterVisible && (
+                    <button
+                        type="button"
+                        onClick={() => {
+                            window.scrollTo({
+                                top: 0,
+                                behavior: "smooth",
+                            });
+                        }}
+                        aria-label="Scroll to top"
+                        className="
+                                fixed
+                                bottom-5
+                                right-5
+                                z-50
+                                flex
+                                h-10
+                                w-10
+                                items-center
+                                justify-center
+                                rounded-full
+                                border
+                                border-[#D9B84C]/60
+                                bg-[#4A0618]
+                                text-[#D9B84C]
+                                shadow-[0_4px_16px_rgba(0,0,0,0.25)]
+                                transition
+                                duration-300
+                                hover:bg-[#D9B84C]
+                                hover:text-[#4A0618]
+                                md:hidden
+                            "
+                    >
+                        ↑
+                    </button>
+                )}
             </div>
 
         </footer>
